@@ -7,7 +7,7 @@ class AppColors {
   static const Color surface = Color(
     0xFF1E1E1E,
   ); // Slightly lighter than background
-
+  static final Color? secondary = Colors.grey[600]; // Purple
   // Text Colors
   static const Color textPrimary = Colors.white;
   static const Color textSecondary = Colors.grey;
