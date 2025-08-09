@@ -7,7 +7,13 @@ class AppColors {
   static const Color surface = Color(
     0xFF1E1E1E,
   ); // Slightly lighter than background
-  static final Color? secondary = Colors.grey[600]; // Purple
+  static final Color? secondary = Colors.grey[600];
+
+  // Home-specific
+  static const Color card = Color(0xFF23232A);
+  static const Color filterSelected = Color(0xFF2D255A);
+  static const Color filterUnselected = card;
+
   // Text Colors
   static const Color textPrimary = Colors.white;
   static const Color textSecondary = Colors.grey;

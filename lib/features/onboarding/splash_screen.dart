@@ -2,34 +2,33 @@ import 'package:boardbuddy/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'onboarding_screen.dart'; // 👈 Make sure this exists
+import 'package:get/get.dart';
+import '../../routes/app_routes.dart';
 
 class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
   @override
-  _SplashScreenState createState() => _SplashScreenState();
+  SplashScreenState createState() => SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(Duration(seconds: 3), checkOnboardingStatus);
+    Timer(const Duration(seconds: 2), checkNavigationStatus);
   }
 
-  void checkOnboardingStatus() async {
+  Future<void> checkNavigationStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    bool seen = prefs.getBool('onboarding_done') ?? false;
+    final onboardingDone = prefs.getBool('onboarding_done') ?? false;
+    final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
 
-    if (seen) {
-      // Navigator.pushReplacement(
-      //   context,
-      //   MaterialPageRoute(builder: (context) => HomeScreen()),
-      // );
+    if (!onboardingDone) {
+      Get.offAllNamed(AppRoutes.onBoardingScreen);
+    } else if (!isLoggedIn) {
+      Get.offAllNamed(AppRoutes.authScreen);
     } else {
-      // Navigator.pushReplacement(
-      //   context,
-      //   MaterialPageRoute(builder: (context) => OnboardingScreen()),
-      // );
+      Get.offAllNamed(AppRoutes.mainScreen);
     }
   }
 

@@ -1,5 +1,8 @@
 import 'package:boardbuddy/core/theme/app_colors.dart';
+import 'package:boardbuddy/routes/app_routes.dart';
 import 'package:flutter/material.dart';
+import 'package:get/route_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -287,7 +290,11 @@ class _OnboardingScreen2State extends State<OnboardingScreen> {
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: _nextPage,
+        onPressed: () async {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('onboarding_done', true);
+          Get.toNamed(AppRoutes.authScreen);
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.textPrimary,
