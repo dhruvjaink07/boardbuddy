@@ -23,7 +23,7 @@ class BoardBuddyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       getPages: AppRoutes.routes,
-      initialRoute: AppRoutes.mainScreen, // Define a splash route
+      initialRoute: AppRoutes.boardScreen, // Define a splash route
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:boardbuddy/core/theme/app_colors.dart';
-import 'package:boardbuddy/features/home/presentation/home_screen.dart';
+import 'package:boardbuddy/features/home/presentation/board_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -14,10 +14,10 @@ class _MainScreenState extends State<MainScreen> {
 
   // Replace these with your actual screens
   static final List<Widget> _screens = <Widget>[
-    HomeScreen(),
-    Center(child: Text('Boards')),
-    Center(child: Text('Assistant')),
-    Center(child: Text('Notifications')),
+    Center(child: Text('Analytics')),
+    BoardScreen(),
+    // Center(child: Text('Assistant')),
+    // Center(child: Text('Notifications')),
     Center(child: Text('Profile')),
   ];
 
@@ -38,21 +38,21 @@ class _MainScreenState extends State<MainScreen> {
         selectedItemColor: Colors.white,
         unselectedItemColor: AppColors.secondary,
         items: [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Analytics'),
           BottomNavigationBarItem(icon: Icon(Icons.apps), label: 'Boards'),
-          BottomNavigationBarItem(
-            icon: Image.asset(
-              'assets/icons/assistant.png',
-              width: 24,
-              height: 24,
-              color: _selectedIndex == 2 ? Colors.white : AppColors.secondary,
-            ),
-            label: 'Assistant',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_none_sharp),
-            label: 'Notifications',
-          ),
+          // BottomNavigationBarItem(
+          //   icon: Image.asset(
+          //     'assets/icons/assistant.png',
+          //     width: 24,
+          //     height: 24,
+          //     color: _selectedIndex == 2 ? Colors.white : AppColors.secondary,
+          //   ),
+          //   label: 'Assistant',
+          // ),
+          // BottomNavigationBarItem(
+          //   icon: Icon(Icons.notifications_none_sharp),
+          //   label: 'Notifications',
+          // ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:boardbuddy/core/theme/app_colors.dart';
+import 'package:get/get.dart'; // Add this import
+import 'package:boardbuddy/routes/app_routes.dart'; // Add this import
 
 // --- COMPONENTS ---
 
@@ -101,83 +103,97 @@ class BoardFilterBar extends StatelessWidget {
 
 class BoardCard extends StatelessWidget {
   final Map<String, dynamic> board;
-  final double height; // <-- Add this line
+  final double height;
+  
   const BoardCard({
     super.key,
     required this.board,
     this.height = 120,
-  }); // <-- Add default value
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(8),
-      child: Row(
-        children: [
-          // Left colored border with matching radius
-          Container(
-            width: 6,
-            // Remove fixed height
-            decoration: BoxDecoration(
-              color: board['color'],
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-              ),
-            ),
-          ),
-          // Card content
-          Expanded(
-            child: Container(
-              // Remove fixed height
+    return GestureDetector(
+      onTap: () {
+        // Navigate to BoardViewScreen with board data
+        Get.toNamed(
+          AppRoutes.boardViewScreen,
+          arguments: {
+            'boardId': board['id'] ?? board['title'], // Use ID if available, fallback to title
+            'boardTitle': board['title'],
+            'boardColor': board['color'],
+            'boardIcon': board['icon'],
+          },
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.all(8),
+        height: height, // Set the overall card height
+        child: Row(
+          children: [
+            // Left colored border with matching radius
+            Container(
+              width: 6,
+              height: height, // Use the height parameter here
               decoration: BoxDecoration(
-                color: AppColors.card,
+                color: board['color'],
                 borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-              height: height, // <-- Add this line
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min, // <-- Add this line
-                children: [
-                  Row(
-                    children: [
-                      Icon(board['icon'], color: board['color'], size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          board['title'],
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                          softWrap: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    board['subtitle'],
-                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                  ),
-                  // Add progress bar, avatars, etc. here if needed
-                ],
               ),
             ),
-          ),
-        ],
+            // Card content
+            Expanded(
+              child: Container(
+                height: height, // Use the height parameter here too
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center, // Center content vertically
+                  children: [
+                    Row(
+                      children: [
+                        Icon(board['icon'], color: board['color'], size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            board['title'],
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            softWrap: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      board['subtitle'],
+                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -185,50 +201,56 @@ class BoardCard extends StatelessWidget {
 
 // --- MAIN SCREEN ---
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class BoardScreen extends StatefulWidget {
+  const BoardScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<BoardScreen> createState() => _BoardScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _BoardScreenState extends State<BoardScreen> {
   int selectedFilter = 0;
 
   final List<String> filters = ['All Boards', 'Recent', 'Favorites'];
 
   final List<Map<String, dynamic>> boards = [
     {
+      'id': 'board_1', // Add unique IDs
       'title': 'Product Launch 2024',
       'subtitle': 'Updated 2h ago',
       'color': Colors.blue,
       'icon': Icons.rocket_launch,
     },
     {
+      'id': 'board_2',
       'title': 'Personal Tasks',
       'subtitle': 'Updated 5h ago',
       'color': Colors.orange,
       'icon': Icons.star,
     },
     {
+      'id': 'board_3',
       'title': 'Design Projects',
       'subtitle': 'Updated 1d ago',
       'color': Colors.purple,
       'icon': Icons.palette,
     },
     {
+      'id': 'board_4',
       'title': 'Meeting Notes',
       'subtitle': 'Updated 3h ago',
       'color': Colors.green,
       'icon': Icons.sticky_note_2,
     },
     {
+      'id': 'board_5',
       'title': 'Reading List',
       'subtitle': 'Updated 2d ago',
       'color': Colors.blue,
       'icon': Icons.menu_book,
     },
     {
+      'id': 'board_6',
       'title': 'Team Goals',
       'subtitle': 'Updated 1h ago',
       'color': Colors.orange,
@@ -254,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const HomeGreeting(),
-        actions: const [HomeAppBarActions()],
+        // actions: const [HomeAppBarActions()],
       ),
       body: SafeArea(
         // <-- Add this
@@ -275,25 +297,53 @@ class _HomeScreenState extends State<HomeScreen> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   // Calculate card height: (total height - paddings) / rows
-                  final double cardHeight =
-                      (constraints.maxHeight - 32) /
-                      3; // 3 rows, adjust as needed
-                  return GridView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 8,
-                    ),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 1.2,
+                  final double cardHeight = (constraints.maxHeight - 32) / 3;
+                  
+                  // Check if it's a tablet/desktop (width > 600px)
+                  final bool isTablet = MediaQuery.of(context).size.width > 600;
+                  
+                  if (isTablet) {
+                    // For tablets: Center the grid and limit its width
+                    return Center(
+                      child: SizedBox(
+                        width: 600, // Max width for tablet layout
+                        child: GridView.builder(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 1.4, // Slightly wider cards for tablet
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                          ),
+                          itemCount: getFilteredBoards().length,
+                          itemBuilder: (context, index) => BoardCard(
+                            board: getFilteredBoards()[index],
+                            height: 140, // Fixed height for tablets
+                          ),
                         ),
-                    itemCount: getFilteredBoards().length,
-                    itemBuilder: (context, index) => BoardCard(
-                      board: getFilteredBoards()[index],
-                      height: cardHeight,
-                    ),
-                  );
+                      ),
+                    );
+                  } else {
+                    // For phones: Keep the responsive layout
+                    return GridView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 1.2,
+                      ),
+                      itemCount: getFilteredBoards().length,
+                      itemBuilder: (context, index) => BoardCard(
+                        board: getFilteredBoards()[index],
+                        height: cardHeight,
+                      ),
+                    );
+                  }
                 },
               ),
             ),
