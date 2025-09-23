@@ -1,29 +1,22 @@
-import 'package:boardbuddy/firebase_options.dart';
-import 'package:boardbuddy/routes/app_routes.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:get/get.dart';
-import 'core/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'home_screen.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const ProviderScope(child: BoardBuddyApp()));
+
+void main() {
+  runApp(MyApp());
 }
 
-class BoardBuddyApp extends StatelessWidget {
-  const BoardBuddyApp({super.key});
+class MyApp extends StatelessWidget {
+  Future<bool> checkOnboardingStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('onboarding_done') ?? false;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GetMaterialApp(
-      title: 'BoardBuddy',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      getPages: AppRoutes.routes,
-      initialRoute: AppRoutes.boardScreen, // Define a splash route
+    return MaterialApp(
+      home: HomeScreen(), // You can redirect to another widget from Splash
     );
   }
 }
