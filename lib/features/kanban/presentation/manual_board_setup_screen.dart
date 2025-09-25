@@ -84,7 +84,7 @@ class _ManualBoardSetupScreenState extends State<ManualBoardSetupScreen> {
       ]);
     }
 
-    // create Board model (use simple owner/member placeholders)
+    // create Board model
     final board = Board(
       boardId: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name.isEmpty ? 'Untitled Board' : name,
@@ -102,12 +102,12 @@ class _ManualBoardSetupScreenState extends State<ManualBoardSetupScreen> {
       for (final c in columns) c.columnId: <task_model.TaskCard>[],
     };
 
-    // navigate to BoardViewScreen with the created board
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BoardViewScreen(board: board, columnsMeta: columns, tasksByColumn: tasksByColumn),
-      ),
-    );
+    // Use GetX navigation instead of regular Navigator
+    Get.to(() => BoardViewScreen(
+      board: board, 
+      columnsMeta: columns, 
+      tasksByColumn: tasksByColumn,
+    ));
   }
 
   Widget _buildStageRow(int index, double height) {
@@ -212,7 +212,7 @@ class _ManualBoardSetupScreenState extends State<ManualBoardSetupScreen> {
                 width: 72,
                 height: 48, // short height so label + spacing fits
                 decoration: imageUrl != null
-                    ? BoxDecoration(
+                    ? BoxDecoration(   
                         image: DecorationImage(
                           image: NetworkImage(imageUrl),
                           fit: BoxFit.cover,
@@ -248,10 +248,7 @@ class _ManualBoardSetupScreenState extends State<ManualBoardSetupScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: (){
-            Get.toNamed(AppRoutes.boardScreen);
-          },
-          
+          onPressed: () => Get.back(), // Use Get.back() instead of Get.toNamed
         ),
         title: const Text('Manual Board Setup', style: TextStyle(color: AppColors.textPrimary)),
         centerTitle: true,

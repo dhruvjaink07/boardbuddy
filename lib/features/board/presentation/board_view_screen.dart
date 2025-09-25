@@ -6,7 +6,8 @@ import 'package:boardbuddy/features/board/presentation/task_details_screen.dart'
 import 'package:boardbuddy/features/board/models/board.dart';
 import 'package:boardbuddy/features/board/models/board_column.dart';
 import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
-import 'package:boardbuddy/features/board/models/board.dart';
+import 'package:get/get.dart'; // Add this import
+import 'package:boardbuddy/routes/app_routes.dart'; // Add this import
 
 class BoardViewScreen extends StatefulWidget {
   final Board? board;
@@ -100,6 +101,14 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
+        automaticallyImplyLeading: false, // Disable default back button
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          onPressed: () {
+            // Always navigate to main board screen, not the previous screen
+            Get.offAllNamed(AppRoutes.mainScreen);
+          },
+        ),
         title: Text(_board.name, style: const TextStyle(color: AppColors.textPrimary)),
       ),
       body: SingleChildScrollView(

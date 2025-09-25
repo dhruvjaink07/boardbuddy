@@ -6,11 +6,11 @@ import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
 
 class KanbanColumn extends StatefulWidget {
   final String title;
-  final List<task_model.TaskCard> tasks;
+  final List<task_model.TaskCard> tasks; // Use typed model consistently
   final String columnId;
   final Function(String taskId, String fromColumn, String toColumn) onTaskMoved;
   final Function(task_model.TaskCard task, Offset position)? onTaskLongPress;
-  final Function(task_model.TaskCard task) onTaskTap;
+  final Function(task_model.TaskCard task) onTaskTap; // Use typed model
 
   const KanbanColumn({
     super.key,
@@ -47,21 +47,21 @@ class _KanbanColumnState extends State<KanbanColumn>
       _taskLocations[task.id] = widget.columnId;
     }
     
-    // Much faster animations for responsiveness
+    // Animation setup
     _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 300), // Even faster
+      duration: const Duration(milliseconds: 300),
       vsync: this,
     );
     _pulseAnimation = Tween<double>(
       begin: 1.0,
-      end: 1.06, // More subtle pulse
+      end: 1.06,
     ).animate(CurvedAnimation(
       parent: _pulseController,
       curve: Curves.easeInOut,
     ));
 
     _dropController = AnimationController(
-      duration: const Duration(milliseconds: 200), // Very fast
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
     _scaleAnimation = Tween<double>(
@@ -95,9 +95,7 @@ class _KanbanColumnState extends State<KanbanColumn>
       setState(() {
         _isHovering = true;
       });
-      // Lighter haptic feedback
       HapticFeedback.selectionClick();
-      // Immediate animation start
       _pulseController.repeat(reverse: true);
     }
   }
@@ -118,7 +116,6 @@ class _KanbanColumnState extends State<KanbanColumn>
       _isHovering = false;
     });
     
-    // Satisfying haptic feedback
     HapticFeedback.mediumImpact();
     
     _pulseController.stop();
@@ -142,9 +139,9 @@ class _KanbanColumnState extends State<KanbanColumn>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Column Header - Much more responsive
+          // Column Header
           AnimatedContainer(
-            duration: const Duration(milliseconds: 100), // Ultra fast
+            duration: const Duration(milliseconds: 100),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: _isHovering 
@@ -211,17 +208,16 @@ class _KanbanColumnState extends State<KanbanColumn>
             ),
           ),
           
-          // Super responsive DragTarget
+          // DragTarget
           Expanded(
             child: DragTarget<task_model.TaskCard>(
-              // Accept immediately - no delays
               onWillAcceptWithDetails: (details) {
                 final task = details.data;
                 final taskId = task.id;
                 final fromColumn = _taskLocations[taskId] ?? widget.columnId;
                 
                 if (fromColumn != widget.columnId) {
-                  _onDragEnter(); // Instant response
+                  _onDragEnter();
                   return true;
                 }
                 return false;
@@ -250,7 +246,6 @@ class _KanbanColumnState extends State<KanbanColumn>
                           return Transform.scale(
                             scale: _justDropped ? _scaleAnimation.value : 1.0,
                             child: Container(
-                              // Full height drop zone
                               height: double.infinity,
                               decoration: BoxDecoration(
                                 color: _isHovering 
@@ -260,10 +255,9 @@ class _KanbanColumnState extends State<KanbanColumn>
                                   bottomLeft: Radius.circular(12),
                                   bottomRight: Radius.circular(12),
                                 ),
-                                // Visual drop zone indicator
                                 border: _isHovering ? Border.all(
                                   color: AppColors.primary.withOpacity(0.4),
-                                  width: 3, // Thicker border for visibility
+                                  width: 3,
                                 ) : null,
                               ),
                               child: widget.tasks.isEmpty 
@@ -290,24 +284,19 @@ class _KanbanColumnState extends State<KanbanColumn>
     );
   }
 
-  // Ultra-responsive draggable task
   Widget _buildDraggableTask(task_model.TaskCard task, int index) {
-    print('Building draggable for task: ${task.id} in column: ${widget.columnId}');
-    
     return AnimatedContainer(
       duration: Duration(milliseconds: 50 + (index * 25)),
       margin: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
         onTap: () {
-          print('Task tapped: ${task.id}');
           widget.onTaskTap(task);
         },
         onLongPressStart: (details) {
-          print('Long press started on task: ${task.id}');
           HapticFeedback.lightImpact();
           widget.onTaskLongPress?.call(task, details.globalPosition);
         },
-        child: LongPressDraggable<task_model.TaskCard>(  // Try regular Draggable first
+        child: LongPressDraggable<task_model.TaskCard>(
           data: task,
           feedback: Material(
             elevation: 16,
@@ -339,11 +328,10 @@ class _KanbanColumnState extends State<KanbanColumn>
             ),
           ),
           onDragStarted: () {
-            print('DRAG STARTED: ${task.id} from ${widget.columnId}');
             HapticFeedback.lightImpact();
           },
           onDragEnd: (details) {
-            print('DRAG ENDED: ${task.id}, accepted: ${details.wasAccepted}');
+            // Handle drag end
           },
           child: task_widget.TaskCard(task: task),
         ),
@@ -373,7 +361,6 @@ class _KanbanColumnState extends State<KanbanColumn>
                       ? AppColors.primary
                       : AppColors.textSecondary.withOpacity(0.2),
                   width: isDragHovering ? 4 : 2,
-                  style: isDragHovering ? BorderStyle.solid : BorderStyle.solid,
                 ),
               ),
               child: Column(
