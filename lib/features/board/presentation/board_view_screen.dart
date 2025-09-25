@@ -3,6 +3,9 @@ import 'package:boardbuddy/core/theme/app_colors.dart';
 import 'package:boardbuddy/features/board/presentation/widgets/kanban_column.dart';
 import 'package:boardbuddy/features/board/presentation/widgets/task_card.dart';
 import 'package:boardbuddy/features/board/presentation/task_details_screen.dart';
+import 'package:boardbuddy/features/board/models/board.dart';
+import 'package:boardbuddy/features/board/models/board_column.dart';
+import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
 
 class BoardViewScreen extends StatefulWidget {
   const BoardViewScreen({super.key});
@@ -12,366 +15,135 @@ class BoardViewScreen extends StatefulWidget {
 }
 
 class _BoardViewScreenState extends State<BoardViewScreen> {
-  List<Map<String, dynamic>> todoTasks = [
-    {
-      'id': '1',
-      'title': 'Design System Updates',
-      'description': 'Update color palette and typography system',
-      'priority': 'High',
-      'assignees': ['JD', 'SM'],
-      'dueDate': 'Dec 15',
-      'progress': 3,
-    },
-    {
-      'id': '2',
-      'title': 'API Integration',
-      'description': 'Implement new payment gateway',
-      'priority': 'High',
-      'assignees': ['Dev'],
-      'dueDate': 'Dec 20',
-      'progress': 1,
-    },
-  ];
+  late Board _board;
 
-  List<Map<String, dynamic>> inProgressTasks = [
-    {
-      'id': '3',
-      'title': 'User Research',
-      'description': 'Conduct user interviews for new features',
-      'priority': 'Medium',
-      'assignees': ['AB'],
-      'dueDate': 'Dec 18',
-      'progress': 2,
-    },
-    {
-      'id': '4',
-      'title': 'Mobile App Testing',
-      'description': 'QA testing for iOS and Android',
-      'priority': 'Low',
-      'assignees': ['QA'],
-      'dueDate': 'Dec 25',
-      'progress': 4,
-    },
-  ];
+  // keep column metadata using your BoardColumn model
+  late List<BoardColumn> _columnsMeta;
 
-  List<Map<String, dynamic>> doneTasks = [
-    {
-      'id': '5',
-      'title': 'Documentation',
-      'description': 'Update API documentation',
-      'priority': 'Medium',
-      'assignees': ['TW'],
-      'dueDate': 'Dec 10',
-      'progress': 5,
-    },
-  ];
+  // tasks stored as typed models (task_model.TaskCard)
+  late Map<String, List<task_model.TaskCard>> _tasksByColumn;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _board = Board(
+      boardId: 'board_1',
+      name: 'Portfolio Website',
+      description: 'A demo board populated with sample tasks',
+      theme: 'forest',
+      ownerId: 'owner_1',
+      memberIds: ['owner_1', 'member_2'],
+      maxEditors: 5,
+      createdAt: DateTime.now().subtract(const Duration(days: 7)),
+      lastUpdated: DateTime.now(),
+    );
+
+    _columnsMeta = [
+      BoardColumn(columnId: 'todo', title: 'To Do', order: 0, createdAt: DateTime.now()),
+      BoardColumn(columnId: 'inprogress', title: 'In Progress', order: 1, createdAt: DateTime.now()),
+      BoardColumn(columnId: 'done', title: 'Done', order: 2, createdAt: DateTime.now()),
+    ];
+
+    // initialize typed tasks by converting from map shapes using TaskCard.fromMap
+    _tasksByColumn = {
+      'todo': [
+        task_model.TaskCard.fromMap({
+          'id': 't1',
+          'title': 'Design landing page',
+          'description': 'Create hero section and feature list',
+          'priority': 'High',
+          'category': 'Design',
+          'dueDate': DateTime.now().add(const Duration(days: 7)).toIso8601String(),
+          'assignees': ['AS', 'MB'],
+          'subtasks': [
+            {'title': 'Wireframe', 'done': true},
+            {'title': 'Prototype', 'done': false},
+          ],
+          'status': 'todo',
+        }),
+        task_model.TaskCard.fromMap({
+          'id': 't2',
+          'title': 'Setup repo & CI',
+          'description': 'Initialize project and add CI workflow',
+          'priority': 'Medium',
+          'category': 'Dev',
+          'dueDate': DateTime.now().add(const Duration(days: 10)).toIso8601String(),
+          'assignees': ['JP'],
+          'subtasks': [],
+          'status': 'todo',
+        }),
+      ],
+      'inprogress': [
+        task_model.TaskCard.fromMap({
+          'id': 't3',
+          'title': 'Implement auth',
+          'description': 'Sign in and signup screens',
+          'priority': 'High',
+          'category': 'Backend',
+          'dueDate': DateTime.now().add(const Duration(days: 3)).toIso8601String(),
+          'assignees': ['RK'],
+          'subtasks': [
+            {'title': 'API', 'done': true},
+            {'title': 'UI', 'done': false},
+          ],
+          'status': 'inprogress',
+        }),
+      ],
+      'done': [
+        task_model.TaskCard.fromMap({
+          'id': 't4',
+          'title': 'Project kickoff',
+          'description': 'Define scope, milestones',
+          'priority': 'Low',
+          'category': 'Planning',
+          'dueDate': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
+          'assignees': ['PM'],
+          'subtasks': [
+            {'title': 'Meeting', 'done': true},
+          ],
+          'status': 'done',
+        }),
+      ],
+    };
+  }
+
+  List<task_model.TaskCard> _tasksForColumn(BoardColumn col) =>
+      List<task_model.TaskCard>.from(_tasksByColumn[col.columnId] ?? []);
 
   void _onTaskMoved(String taskId, String fromColumn, String toColumn) {
-    setState(() {
-      Map<String, dynamic>? task;
-      
-      // Remove from source
-      if (fromColumn == 'todo') {
-        task = todoTasks.firstWhere((t) => t['id'] == taskId);
-        todoTasks.removeWhere((t) => t['id'] == taskId);
-      } else if (fromColumn == 'inprogress') {
-        task = inProgressTasks.firstWhere((t) => t['id'] == taskId);
-        inProgressTasks.removeWhere((t) => t['id'] == taskId);
-      } else if (fromColumn == 'done') {
-        task = doneTasks.firstWhere((t) => t['id'] == taskId);
-        doneTasks.removeWhere((t) => t['id'] == taskId);
+    final from = _tasksByColumn[fromColumn];
+    final to = _tasksByColumn[toColumn];
+    if (from == null || to == null) return;
+    final idx = from.indexWhere((t) => t.id == taskId);
+    if (idx < 0) return;
+    final task = from.removeAt(idx);
+    final updated = task.copyWith(status: toColumn);
+    to.add(updated);
+    setState(() {});
+  }
+
+  void _replaceOrInsertTask(task_model.TaskCard updated) {
+    // try replace
+    for (final entry in _tasksByColumn.entries) {
+      final idx = entry.value.indexWhere((t) => t.id == updated.id);
+      if (idx >= 0) {
+        entry.value[idx] = updated;
+        setState(() {});
+        return;
       }
-
-      // Add to destination
-      if (task != null) {
-        if (toColumn == 'todo') {
-          todoTasks.add(task);
-        } else if (toColumn == 'inprogress') {
-          inProgressTasks.add(task);
-        } else if (toColumn == 'done') {
-          doneTasks.add(task);
-        }
-      }
-    });
-  }
-
-  // Show popup menu like Instagram
-  void _showTaskActions(BuildContext context, Map<String, dynamic> task, String currentColumn, Offset tapPosition) {
-    // Get available columns (exclude current column)
-    List<Map<String, String>> availableColumns = [];
-    
-    if (currentColumn != 'todo') {
-      availableColumns.add({'id': 'todo', 'title': 'Move to To Do', 'icon': '📋'});
     }
-    if (currentColumn != 'inprogress') {
-      availableColumns.add({'id': 'inprogress', 'title': 'Move to In Progress', 'icon': '⏳'});
+    // not found -> insert into first column
+    final firstKey = _columnsMeta.first.columnId;
+    _tasksByColumn[firstKey] = (_tasksByColumn[firstKey] ?? [])..add(updated);
+    setState(() {});
+  }
+
+  void _deleteTaskById(String id) {
+    for (final entry in _tasksByColumn.entries) {
+      entry.value.removeWhere((t) => t.id == id);
     }
-    if (currentColumn != 'done') {
-      availableColumns.add({'id': 'done', 'title': 'Move to Done', 'icon': '✅'});
-    }
-
-    showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        tapPosition.dx,
-        tapPosition.dy,
-        tapPosition.dx + 1,
-        tapPosition.dy + 1,
-      ),
-      color: AppColors.card,
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      items: <PopupMenuEntry<String>>[
-        // Task info header
-        PopupMenuItem<String>(
-          enabled: false,
-          height: 60,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: _getPriorityColor(task['priority']),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        task['title'],
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  height: 1,
-                  color: AppColors.textSecondary.withOpacity(0.1),
-                ),
-              ],
-            ),
-          ),
-        ),
-        
-        // Move options
-        ...availableColumns.map<PopupMenuItem<String>>((column) => PopupMenuItem<String>(
-          value: column['id'],
-          height: 50,
-          child: Row(
-            children: [
-              Text(
-                column['icon']!,
-                style: const TextStyle(fontSize: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  column['title']!,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 14,
-                color: AppColors.textSecondary.withOpacity(0.5),
-              ),
-            ],
-          ),
-        )),
-        
-        // Divider
-        const PopupMenuDivider(),
-        
-        // Edit option
-        PopupMenuItem<String>(
-          value: 'edit',
-          height: 50,
-          child: Row(
-            children: [
-              Icon(
-                Icons.edit_outlined,
-                size: 18,
-                color: AppColors.textSecondary,
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Edit Task',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-        
-        // Delete option
-        PopupMenuItem<String>(
-          value: 'delete',
-          height: 50,
-          child: Row(
-            children: [
-              const Icon(
-                Icons.delete_outline,
-                size: 18,
-                color: Colors.red,
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Delete Task',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ).then((value) {
-      if (value != null) {
-        if (value == 'edit') {
-          // Handle edit
-          _showEditDialog(task);
-        } else if (value == 'delete') {
-          // Handle delete
-          _showDeleteDialog(task, currentColumn);
-        } else {
-          // Handle move
-          _onTaskMoved(task['id'], currentColumn, value);
-          _showSuccessMessage('Task moved successfully');
-        }
-      }
-    });
-  }
-
-  void _showEditDialog(Map<String, dynamic> task) {
-    // Show edit dialog
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.card,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        title: const Text(
-          'Edit Task',
-          style: TextStyle(color: AppColors.textPrimary),
-        ),
-        content: const Text(
-          'Edit functionality will be implemented here.',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDeleteDialog(Map<String, dynamic> task, String currentColumn) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.card,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        title: const Text(
-          'Delete Task',
-          style: TextStyle(color: AppColors.textPrimary),
-        ),
-        content: Text(
-          'Are you sure you want to delete "${task['title']}"?',
-          style: const TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteTask(task['id'], currentColumn);
-              _showSuccessMessage('Task deleted successfully');
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _deleteTask(String taskId, String column) {
-    setState(() {
-      if (column == 'todo') {
-        todoTasks.removeWhere((t) => t['id'] == taskId);
-      } else if (column == 'inprogress') {
-        inProgressTasks.removeWhere((t) => t['id'] == taskId);
-      } else if (column == 'done') {
-        doneTasks.removeWhere((t) => t['id'] == taskId);
-      }
-    });
-  }
-
-  void _showSuccessMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: const TextStyle(color: Colors.white),
-        ),
-        backgroundColor: AppColors.primary,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-
-  // Helper method to get priority color
-  Color _getPriorityColor(String priority) {
-    switch (priority.toLowerCase()) {
-      case 'high':
-        return const Color(0xFFDC2626);
-      case 'medium':
-        return const Color(0xFFD97706);
-      case 'low':
-        return const Color(0xFF059669);
-      default:
-        return AppColors.textSecondary;
-    }
+    setState(() {});
   }
 
   @override
@@ -381,124 +153,58 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Board View',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
-            onPressed: () {},
-          ),
-        ],
+        title: Text(_board.name, style: const TextStyle(color: AppColors.textPrimary)),
       ),
       body: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.all(12),
         child: Row(
-          children: [
-            // To Do Column
-            KanbanColumn(
-              title: 'To Do',
-              tasks: todoTasks,
-              columnId: 'todo',
-              onTaskMoved: _onTaskMoved,
-              onTaskLongPress: _showTaskActions,
-              onTaskTap: (task) {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => TaskDetailsScreen(task: task),
-                  ),
-                );
-              },
-            ),
-            // In Progress Column
-            KanbanColumn(
-              title: 'In Progress',
-              tasks: inProgressTasks,
-              columnId: 'inprogress',
-              onTaskMoved: _onTaskMoved,
-              onTaskLongPress: _showTaskActions,
-              onTaskTap: (task) {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => TaskDetailsScreen(task: task),
-                  ),
-                );
-              },
-            ),
-            // Done Column
-            KanbanColumn(
-              title: 'Done',
-              tasks: doneTasks,
-              columnId: 'done',
-              onTaskMoved: _onTaskMoved,
-              onTaskLongPress: _showTaskActions,
-              onTaskTap: (task) {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => TaskDetailsScreen(task: task),
-                  ),
-                );
-              },
-            ),
-          ],
+          children: _columnsMeta.map((colMeta) {
+            final tasks = _tasksForColumn(colMeta);
+            return Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: KanbanColumn(
+                title: colMeta.title,
+                tasks: tasks, // typed list
+                columnId: colMeta.columnId,
+                onTaskMoved: _onTaskMoved,
+                onTaskLongPress: (task, pos) {
+                  // placeholder
+                },
+                onTaskTap: (task) async {
+                  // OPEN TaskDetailsScreen with the typed model and handle TaskAction result
+                  final action = await Navigator.of(context).push<TaskAction?>(
+                    MaterialPageRoute(builder: (_) => TaskDetailsScreen(task: task)),
+                  );
+                  if (action == null) return;
+                  if (action.action == 'delete' && action.task != null) {
+                    _deleteTaskById(action.task!.id);
+                  } else if (action.action == 'save' && action.task != null) {
+                    // update or insert the returned model into columns
+                    _replaceOrInsertTask(action.task!);
+                  }
+                },
+              ),
+            );
+          }).toList(),
         ),
       ),
-      floatingActionButton: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width - 32,
-              minWidth: 180,
-            ),
-            child: FloatingActionButton.extended(
-              backgroundColor: AppColors.primary,
-              onPressed: () async {
-                // Open TaskDetailsScreen in "add" mode (no task passed).
-                final result = await Navigator.of(context).push<Map<String, dynamic>?>(
-                  MaterialPageRoute(
-                    builder: (_) => const TaskDetailsScreen(),
-                  ),
-                );
-
-                if (result != null) {
-                  // If result indicates delete action, ignore for add flow
-                  if (result['_action'] == 'delete') return;
-
-                  setState(() {
-                    // Ensure it has an id
-                    final newTask = Map<String, dynamic>.from(result);
-                    if (newTask['id'] == null) {
-                      newTask['id'] = DateTime.now().millisecondsSinceEpoch.toString();
-                    }
-                    // Default new tasks go to To Do
-                    todoTasks.add(newTask);
-                  });
-
-                  _showSuccessMessage('Task created');
-                }
-              },
-              icon: const Icon(Icons.add, color: AppColors.textPrimary),
-              label: const Text(
-                'Add Task',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          // create new task via TaskDetailsScreen (typed TaskAction result)
+          final action = await Navigator.of(context).push<TaskAction?>(
+            MaterialPageRoute(builder: (_) => const TaskDetailsScreen()),
+          );
+          if (action == null) return;
+          if (action.action == 'save' && action.task != null) {
+            final firstKey = _columnsMeta.first.columnId;
+            _tasksByColumn[firstKey] = (_tasksByColumn[firstKey] ?? [])..add(action.task!);
+            setState(() {});
+          }
+        },
+        icon: const Icon(Icons.add, color: AppColors.textPrimary),
+        label: const Text('Add Task', style: TextStyle(color: AppColors.textPrimary)),
+        backgroundColor: AppColors.primary,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
