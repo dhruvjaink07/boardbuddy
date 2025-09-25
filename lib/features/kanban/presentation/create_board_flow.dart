@@ -1,0 +1,594 @@
+import 'package:flutter/material.dart';
+import 'package:boardbuddy/core/theme/app_colors.dart';
+import 'package:get/get.dart'; // added
+import 'package:boardbuddy/routes/app_routes.dart'; // added
+
+class CreateBoardPage extends StatefulWidget {
+  const CreateBoardPage({super.key});
+
+  @override
+  State<CreateBoardPage> createState() => _CreateBoardPageState();
+}
+
+class _CreateBoardPageState extends State<CreateBoardPage> {
+  final TextEditingController _boardNameController = TextEditingController();
+  String selectedTheme = "Purple Galaxy";
+  Gradient selectedGradient = LinearGradient(
+    colors: [AppColors.purple, AppColors.purpleLight],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  // ADDED: track start method ('ai' or 'manual')
+  String selectedStartMethod = 'ai';
+
+  void _selectTheme(String theme, Gradient gradient) {
+    setState(() {
+      selectedTheme = theme;
+      selectedGradient = gradient;
+    });
+  }
+
+  void _createBoard() {
+    String boardName =
+        _boardNameController.text.isEmpty ? "Untitled Board" : _boardNameController.text;
+
+    // TODO: persist board
+    debugPrint("Board Created:");
+    debugPrint("Name: $boardName");
+    debugPrint("Theme: $selectedTheme");
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          onPressed: () => Get.toNamed(AppRoutes.boardScreen),
+        ),
+        centerTitle: true,
+        title: const Text(
+          "Create New Board",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+        ),
+        
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Board Name Input
+            const Text(
+              "Board Name",
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _boardNameController,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                hintText: "e.g., Final Year Project, Marketing Plan",
+                hintStyle: const TextStyle(color: AppColors.textSecondary),
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 24),
+
+            // Choose How to Start
+            const Text(
+              "Choose How to Start",
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+
+            // REPLACED: clickable toggle cards
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => selectedStartMethod = 'ai'),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: AppColors.surface,
+                        border: Border.all(
+                          color: selectedStartMethod == 'ai'
+                              ? AppColors.primary.withOpacity(0.95)
+                              : Colors.transparent,
+                          width: 1.5,
+                        ),
+                        boxShadow: selectedStartMethod == 'ai'
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.06),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.psychology,
+                            color: selectedStartMethod == 'ai' ? AppColors.primary : AppColors.textSecondary,
+                            size: 28,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            "AI Prompt Generator",
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            "Describe your goal, we'll build your board",
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      // select and navigate to manual setup screen via app routes
+                      setState(() => selectedStartMethod = 'manual');
+                      Get.toNamed(AppRoutes.manualBoardSetupScreen);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: AppColors.surface,
+                        border: Border.all(
+                          color: selectedStartMethod == 'manual'
+                              ? AppColors.primary.withOpacity(0.95)
+                              : Colors.transparent,
+                          width: 1.5,
+                        ),
+                        boxShadow: selectedStartMethod == 'manual'
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.04),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.edit,
+                              color: selectedStartMethod == 'manual' ? AppColors.primary : AppColors.textSecondary,
+                              size: 28),
+                          const SizedBox(height: 12),
+                          Text(
+                            "Manual Setup",
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            "Create your own from scratch",
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Prompt box (enabled only when AI is selected)
+            TextField(
+              maxLines: 3,
+              enabled: selectedStartMethod == 'ai',
+              style: TextStyle(
+                color: selectedStartMethod == 'ai' ? AppColors.textPrimary : AppColors.textSecondary,
+              ),
+              decoration: InputDecoration(
+                hintText: selectedStartMethod == 'ai' ? "Write a short prompt..." : "Prompt disabled for manual setup",
+                hintStyle: const TextStyle(color: AppColors.textSecondary),
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Board Theme Section
+            const Text(
+              "Pick a Board Theme",
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _themeCard(
+                    "Purple Galaxy",
+                    "Research & Study",
+                    LinearGradient(
+                      colors: [AppColors.purple, AppColors.purpleLight],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    Icons.star,
+                    selectedTheme == "Purple Galaxy",
+                    () => _selectTheme(
+                      "Purple Galaxy",
+                      LinearGradient(
+                        colors: [AppColors.purple, AppColors.purpleLight],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _themeCard(
+                    "Forest Green",
+                    "Travel & Nature",
+                    LinearGradient(
+                      colors: [AppColors.success, AppColors.surface],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    Icons.eco,
+                    selectedTheme == "Forest Green",
+                    () => _selectTheme(
+                      "Forest Green",
+                      LinearGradient(
+                        colors: [AppColors.success, AppColors.surface],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _themeCard(
+                    "Neon Red",
+                    "Events & Goals",
+                    LinearGradient(
+                      colors: [AppColors.pink, AppColors.error],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    Icons.flash_on,
+                    selectedTheme == "Neon Red",
+                    () => _selectTheme(
+                      "Neon Red",
+                      LinearGradient(
+                        colors: [AppColors.pink, AppColors.error],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _themeCard(
+                    "Sky Blue",
+                    "Work & Tasks",
+                    LinearGradient(
+                      colors: [AppColors.skyBlue, AppColors.surface],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    Icons.work,
+                    selectedTheme == "Sky Blue",
+                    () => _selectTheme(
+                      "Sky Blue",
+                      LinearGradient(
+                        colors: [AppColors.skyBlue, AppColors.surface],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Preview Section
+            const Text(
+              "Preview",
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+
+            // REPLACED: nicer preview card
+            _PreviewBoardWidget(
+              gradient: selectedGradient,
+              title: _boardNameController.text.isEmpty ? "Final Year Project" : _boardNameController.text,
+            ),
+            const SizedBox(height: 30),
+
+            // Create Board Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                onPressed: _createBoard,
+                child: const Text(
+                  "Create Board",
+                  style: TextStyle(color: AppColors.textPrimary, fontSize: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Fixed Theme Card
+Widget _themeCard(
+  String title,
+  String subtitle,
+  Gradient gradient,
+  IconData icon,
+  bool selected,
+  VoidCallback onTap,
+) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(16),
+        border: selected ? Border.all(color: AppColors.selectionGlow.withOpacity(0.9), width: 2) : null,
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: AppColors.selectionGlow.withOpacity(0.16),
+                  blurRadius: 18,
+                  spreadRadius: 4,
+                  offset: const Offset(0, 6),
+                )
+              ]
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppColors.textPrimary, size: 28),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// Preview Column
+class _PreviewColumn extends StatelessWidget {
+  final String title;
+  const _PreviewColumn(this.title);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.card.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Text(title, style: const TextStyle(color: AppColors.textPrimary)),
+        ),
+      ),
+    );
+  }
+}
+
+// New widget: visually improved preview (placed near bottom of file)
+class _PreviewBoardWidget extends StatelessWidget {
+  final Gradient gradient;
+  final String title;
+
+  const _PreviewBoardWidget({
+    super.key,
+    required this.gradient,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        // increased height for better proportions
+        height: 150,
+        decoration: BoxDecoration(
+          gradient: gradient,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.45),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.02),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // subtle overlay
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.03),
+                      Colors.black.withOpacity(0.02),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+              ),
+            ),
+
+            // content
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Board title
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Columns preview row (aligned and centered vertically)
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Expanded(child: _AlignedPreviewColumn(label: "To Do")),
+                        SizedBox(width: 12),
+                        Expanded(child: _AlignedPreviewColumn(label: "In Progress")),
+                        SizedBox(width: 12),
+                        Expanded(child: _AlignedPreviewColumn(label: "Done")),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AlignedPreviewColumn extends StatelessWidget {
+  final String label;
+  const _AlignedPreviewColumn({super.key, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    // Each column stacks a small pill label at top and two mini-cards below aligned vertically
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Label pill aligned left within column
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.textPrimary.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Two stacked mini-cards with consistent spacing and rounded corners
+        Expanded(
+          child: Column(
+            children: [
+              _MiniPreviewCard(),
+              const SizedBox(height: 8),
+              _MiniPreviewCard(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MiniPreviewCard extends StatelessWidget {
+  const _MiniPreviewCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.textPrimary.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withOpacity(0.04)),
+        ),
+        child: const SizedBox.shrink(),
+      ),
+    );
+  }
+}

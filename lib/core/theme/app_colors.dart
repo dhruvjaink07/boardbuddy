@@ -25,4 +25,12 @@ class AppColors {
   static const Color success = Color(0xFF4CAF50);
   static const Color error = Color(0xFFF44336);
   static const Color warning = Color(0xFFFFC107);
+
+  // New theme/accent colors (for CreateBoardPage themes & gradients)
+  static const Color purple = Color(0xFF7C3AED);
+  static const Color purpleLight = Color(0xFFB794F4);
+  static const Color pink = Color(0xFFEC4899);
+  static const Color skyBlue = Color(0xFF38BDF8);
+  // subtle selection glow
+  static const Color selectionGlow = Color(0xFF7C3AED);
 }

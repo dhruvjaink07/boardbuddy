@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:boardbuddy/core/theme/app_colors.dart';
 import 'package:boardbuddy/features/board/presentation/widgets/kanban_column.dart';
 import 'package:boardbuddy/features/board/presentation/widgets/task_card.dart';
+import 'package:boardbuddy/features/board/presentation/task_details_screen.dart';
 
 class BoardViewScreen extends StatefulWidget {
   const BoardViewScreen({super.key});
@@ -410,6 +411,13 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
               columnId: 'todo',
               onTaskMoved: _onTaskMoved,
               onTaskLongPress: _showTaskActions,
+              onTaskTap: (task) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TaskDetailsScreen(task: task),
+                  ),
+                );
+              },
             ),
             // In Progress Column
             KanbanColumn(
@@ -418,6 +426,13 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
               columnId: 'inprogress',
               onTaskMoved: _onTaskMoved,
               onTaskLongPress: _showTaskActions,
+              onTaskTap: (task) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TaskDetailsScreen(task: task),
+                  ),
+                );
+              },
             ),
             // Done Column
             KanbanColumn(
@@ -426,29 +441,62 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
               columnId: 'done',
               onTaskMoved: _onTaskMoved,
               onTaskLongPress: _showTaskActions,
+              onTaskTap: (task) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TaskDetailsScreen(task: task),
+                  ),
+                );
+              },
             ),
           ],
         ),
       ),
-      floatingActionButton: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        child: FloatingActionButton.extended(
-          backgroundColor: AppColors.primary,
-          onPressed: () {},
-          label: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.add, color: AppColors.textPrimary),
-              SizedBox(width: 8),
-              Text(
+      floatingActionButton: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width - 32,
+              minWidth: 180,
+            ),
+            child: FloatingActionButton.extended(
+              backgroundColor: AppColors.primary,
+              onPressed: () async {
+                // Open TaskDetailsScreen in "add" mode (no task passed).
+                final result = await Navigator.of(context).push<Map<String, dynamic>?>(
+                  MaterialPageRoute(
+                    builder: (_) => const TaskDetailsScreen(),
+                  ),
+                );
+
+                if (result != null) {
+                  // If result indicates delete action, ignore for add flow
+                  if (result['_action'] == 'delete') return;
+
+                  setState(() {
+                    // Ensure it has an id
+                    final newTask = Map<String, dynamic>.from(result);
+                    if (newTask['id'] == null) {
+                      newTask['id'] = DateTime.now().millisecondsSinceEpoch.toString();
+                    }
+                    // Default new tasks go to To Do
+                    todoTasks.add(newTask);
+                  });
+
+                  _showSuccessMessage('Task created');
+                }
+              },
+              icon: const Icon(Icons.add, color: AppColors.textPrimary),
+              label: const Text(
                 'Add Task',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),

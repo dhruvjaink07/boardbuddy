@@ -355,7 +355,8 @@ class _BoardScreenState extends State<BoardScreen> {
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: AppColors.textPrimary),
         onPressed: () {
-          // Add new board action
+                    Get.toNamed(AppRoutes.createBoard);
+
         },
       ),
     );
