@@ -2,6 +2,10 @@ import 'package:boardbuddy/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:boardbuddy/core/theme/app_colors.dart';
 import 'package:get/route_manager.dart';
+import 'package:boardbuddy/features/board/models/board.dart';
+import 'package:boardbuddy/features/board/models/board_column.dart';
+import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
+import 'package:boardbuddy/features/board/presentation/board_view_screen.dart';
 
 class ManualBoardSetupScreen extends StatefulWidget {
   const ManualBoardSetupScreen({super.key});
@@ -59,27 +63,51 @@ class _ManualBoardSetupScreenState extends State<ManualBoardSetupScreen> {
     super.dispose();
   }
 
-  void _createBoard() {
+  void _onCreateBoardPressed() {
     final name = _boardNameController.text.trim();
-    final stages = _stageControllers.map((c) => c.text.trim()).where((s) => s.isNotEmpty).toList();
-    final desc = _descriptionController.text.trim();
+    final description = _descriptionController.text.trim();
+    final theme = _selectedTheme ?? 'forest';
 
-    if (name.isEmpty || stages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please provide a board name and at least one stage')),
-      );
-      return;
+    // build column models from current stage controllers / values
+    final columns = <BoardColumn>[];
+    for (var i = 0; i < _stageControllers.length; i++) {
+      final title = _stageControllers[i].text.trim();
+      if (title.isEmpty) continue;
+      columns.add(BoardColumn(columnId: 'col_${i + 1}', title: title, order: i, createdAt: DateTime.now()));
+    }
+    if (columns.isEmpty) {
+      // fallback to default three columns
+      columns.addAll([
+        BoardColumn(columnId: 'todo', title: 'To Do', order: 0, createdAt: DateTime.now()),
+        BoardColumn(columnId: 'inprogress', title: 'In Progress', order: 1, createdAt: DateTime.now()),
+        BoardColumn(columnId: 'done', title: 'Done', order: 2, createdAt: DateTime.now()),
+      ]);
     }
 
-    final board = {
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'name': name,
-      'description': desc,
-      'stages': stages,
-      'theme': _selectedTheme,
+    // create Board model (use simple owner/member placeholders)
+    final board = Board(
+      boardId: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name.isEmpty ? 'Untitled Board' : name,
+      description: description,
+      theme: theme,
+      ownerId: 'me',
+      memberIds: ['me'],
+      maxEditors: 5,
+      createdAt: DateTime.now(),
+      lastUpdated: DateTime.now(),
+    );
+
+    // prepare empty typed task lists keyed by columnId
+    final tasksByColumn = <String, List<task_model.TaskCard>>{
+      for (final c in columns) c.columnId: <task_model.TaskCard>[],
     };
 
-    Navigator.of(context).pop(board);
+    // navigate to BoardViewScreen with the created board
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BoardViewScreen(board: board, columnsMeta: columns, tasksByColumn: tasksByColumn),
+      ),
+    );
   }
 
   Widget _buildStageRow(int index, double height) {
@@ -357,7 +385,7 @@ class _ManualBoardSetupScreenState extends State<ManualBoardSetupScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _createBoard,
+                  onPressed: _onCreateBoardPressed,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 16),

@@ -6,9 +6,14 @@ import 'package:boardbuddy/features/board/presentation/task_details_screen.dart'
 import 'package:boardbuddy/features/board/models/board.dart';
 import 'package:boardbuddy/features/board/models/board_column.dart';
 import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
+import 'package:boardbuddy/features/board/models/board.dart';
 
 class BoardViewScreen extends StatefulWidget {
-  const BoardViewScreen({super.key});
+  final Board? board;
+  final List<BoardColumn>? columnsMeta;
+  final Map<String, List<task_model.TaskCard>>? tasksByColumn;
+
+  const BoardViewScreen({super.key, this.board, this.columnsMeta, this.tasksByColumn});
 
   @override
   State<BoardViewScreen> createState() => _BoardViewScreenState();
@@ -16,96 +21,38 @@ class BoardViewScreen extends StatefulWidget {
 
 class _BoardViewScreenState extends State<BoardViewScreen> {
   late Board _board;
-
-  // keep column metadata using your BoardColumn model
   late List<BoardColumn> _columnsMeta;
-
-  // tasks stored as typed models (task_model.TaskCard)
   late Map<String, List<task_model.TaskCard>> _tasksByColumn;
 
   @override
   void initState() {
     super.initState();
 
-    _board = Board(
-      boardId: 'board_1',
-      name: 'Portfolio Website',
-      description: 'A demo board populated with sample tasks',
-      theme: 'forest',
-      ownerId: 'owner_1',
-      memberIds: ['owner_1', 'member_2'],
-      maxEditors: 5,
-      createdAt: DateTime.now().subtract(const Duration(days: 7)),
-      lastUpdated: DateTime.now(),
-    );
+    // Use provided values (from create flow) or fallback to dummy data
+    _board = widget.board ??
+        Board(
+          boardId: 'board_1',
+          name: 'Portfolio Website',
+          description: 'A demo board populated with sample tasks',
+          theme: 'forest',
+          ownerId: 'owner_1',
+          memberIds: ['owner_1'],
+          maxEditors: 5,
+          createdAt: DateTime.now().subtract(const Duration(days: 7)),
+          lastUpdated: DateTime.now(),
+        );
 
-    _columnsMeta = [
-      BoardColumn(columnId: 'todo', title: 'To Do', order: 0, createdAt: DateTime.now()),
-      BoardColumn(columnId: 'inprogress', title: 'In Progress', order: 1, createdAt: DateTime.now()),
-      BoardColumn(columnId: 'done', title: 'Done', order: 2, createdAt: DateTime.now()),
-    ];
+    _columnsMeta = widget.columnsMeta ??
+        [
+          BoardColumn(columnId: 'todo', title: 'To Do', order: 0, createdAt: DateTime.now()),
+          BoardColumn(columnId: 'inprogress', title: 'In Progress', order: 1, createdAt: DateTime.now()),
+          BoardColumn(columnId: 'done', title: 'Done', order: 2, createdAt: DateTime.now()),
+        ];
 
-    // initialize typed tasks by converting from map shapes using TaskCard.fromMap
-    _tasksByColumn = {
-      'todo': [
-        task_model.TaskCard.fromMap({
-          'id': 't1',
-          'title': 'Design landing page',
-          'description': 'Create hero section and feature list',
-          'priority': 'High',
-          'category': 'Design',
-          'dueDate': DateTime.now().add(const Duration(days: 7)).toIso8601String(),
-          'assignees': ['AS', 'MB'],
-          'subtasks': [
-            {'title': 'Wireframe', 'done': true},
-            {'title': 'Prototype', 'done': false},
-          ],
-          'status': 'todo',
-        }),
-        task_model.TaskCard.fromMap({
-          'id': 't2',
-          'title': 'Setup repo & CI',
-          'description': 'Initialize project and add CI workflow',
-          'priority': 'Medium',
-          'category': 'Dev',
-          'dueDate': DateTime.now().add(const Duration(days: 10)).toIso8601String(),
-          'assignees': ['JP'],
-          'subtasks': [],
-          'status': 'todo',
-        }),
-      ],
-      'inprogress': [
-        task_model.TaskCard.fromMap({
-          'id': 't3',
-          'title': 'Implement auth',
-          'description': 'Sign in and signup screens',
-          'priority': 'High',
-          'category': 'Backend',
-          'dueDate': DateTime.now().add(const Duration(days: 3)).toIso8601String(),
-          'assignees': ['RK'],
-          'subtasks': [
-            {'title': 'API', 'done': true},
-            {'title': 'UI', 'done': false},
-          ],
-          'status': 'inprogress',
-        }),
-      ],
-      'done': [
-        task_model.TaskCard.fromMap({
-          'id': 't4',
-          'title': 'Project kickoff',
-          'description': 'Define scope, milestones',
-          'priority': 'Low',
-          'category': 'Planning',
-          'dueDate': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
-          'assignees': ['PM'],
-          'subtasks': [
-            {'title': 'Meeting', 'done': true},
-          ],
-          'status': 'done',
-        }),
-      ],
-    };
+    _tasksByColumn = widget.tasksByColumn ??
+        {
+          for (final c in _columnsMeta) c.columnId: <task_model.TaskCard>[],
+        };
   }
 
   List<task_model.TaskCard> _tasksForColumn(BoardColumn col) =>

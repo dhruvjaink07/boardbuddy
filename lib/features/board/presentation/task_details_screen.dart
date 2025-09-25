@@ -9,8 +9,7 @@ class TaskAction {
 }
 
 class TaskDetailsScreen extends StatefulWidget {
-  final task_model.TaskCard? task; // typed model
-
+  final task_model.TaskCard? task;
   const TaskDetailsScreen({super.key, this.task});
 
   @override
@@ -45,13 +44,8 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
   void _onSave() {
     final title = _titleController.text.trim();
     final desc = _descriptionController.text.trim();
-    final assignees = _assigneesController.text
-        .split(',')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
+    final assignees = _assigneesController.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
 
-    // create or update model via copyWith / fromMap compatibility
     final task = (widget.task == null)
         ? task_model.TaskCard.fromMap({
             'id': DateTime.now().millisecondsSinceEpoch.toString(),
@@ -61,7 +55,9 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             'category': _category,
             'assignees': assignees,
             'subtasks': [],
-            'status': widget.task?.status ?? 'todo',
+            'status': 'todo',
+            'createdAt': DateTime.now().toIso8601String(),
+            'lastUpdated': DateTime.now().toIso8601String(),
           })
         : widget.task!.copyWith(
             title: title,
@@ -104,11 +100,11 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Title', style: TextStyle(color: AppColors.textPrimary)),
           const SizedBox(height: 8),
-          TextField(controller: _titleController, decoration: const InputDecoration(hintText: 'Task title'),),
+          TextField(controller: _titleController, decoration: const InputDecoration(hintText: 'Task title')),
           const SizedBox(height: 12),
           const Text('Description', style: TextStyle(color: AppColors.textPrimary)),
           const SizedBox(height: 8),
-          TextField(controller: _descriptionController, maxLines: 4, decoration: const InputDecoration(hintText: 'Task description'),),
+          TextField(controller: _descriptionController, maxLines: 4, decoration: const InputDecoration(hintText: 'Task description')),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
@@ -131,26 +127,28 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text('Category', style: TextStyle(color: AppColors.textPrimary)),
                 const SizedBox(height: 8),
-                TextField(controller: TextEditingController(text: _category)..selection = TextSelection.collapsed(offset: _category.length), onChanged: (v) => _category = v, decoration: const InputDecoration(hintText: 'e.g., Design')),
+                TextField(
+                  controller: TextEditingController(text: _category)..selection = TextSelection.collapsed(offset: _category.length),
+                  onChanged: (v) => _category = v,
+                  decoration: const InputDecoration(hintText: 'e.g., Design'),
+                ),
               ]),
             ),
-          ],),
+          ]),
           const SizedBox(height: 12),
           const Text('Assignees (comma separated)', style: TextStyle(color: AppColors.textPrimary)),
           const SizedBox(height: 8),
           TextField(controller: _assigneesController, decoration: const InputDecoration(hintText: 'AS, MB')),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _onSave,
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                  child: const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Text('Save', style: TextStyle(color: AppColors.textPrimary))),
-                ),
+          Row(children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _onSave,
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                child: const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Text('Save', style: TextStyle(color: AppColors.textPrimary))),
               ),
-            ],
-          )
+            ),
+          ]),
         ]),
       ),
     );
