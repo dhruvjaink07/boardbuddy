@@ -20,7 +20,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _assigneesController;
-  String _priority = 'Medium';
+  String _priority = 'medium'; // Changed to lowercase
   String _category = '';
 
   @override
@@ -29,7 +29,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     _titleController = TextEditingController(text: widget.task?.title ?? '');
     _descriptionController = TextEditingController(text: widget.task?.description ?? '');
     _assigneesController = TextEditingController(text: (widget.task?.assignees ?? []).join(', '));
-    _priority = widget.task?.priority ?? 'Medium';
+    _priority = widget.task?.priority ?? 'medium'; // Changed to lowercase
     _category = widget.task?.category ?? '';
   }
 
@@ -57,7 +57,9 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             'subtasks': [],
             'status': 'todo',
             'createdAt': DateTime.now().toIso8601String(),
-            'lastUpdated': DateTime.now().toIso8601String(),
+            'updatedAt': DateTime.now().toIso8601String(),
+            'columnId': 'todo', // Add default columnId
+            'progress': 0.0, // Add default progress
           })
         : widget.task!.copyWith(
             title: title,
@@ -65,7 +67,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             priority: _priority,
             category: _category,
             assignees: assignees,
-            lastUpdated: DateTime.now(),
+            updatedAt: DateTime.now(), // Changed from lastUpdated
           );
 
     Navigator.of(context).pop(TaskAction(action: 'save', task: task));
@@ -100,11 +102,38 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Title', style: TextStyle(color: AppColors.textPrimary)),
           const SizedBox(height: 8),
-          TextField(controller: _titleController, decoration: const InputDecoration(hintText: 'Task title')),
+          TextField(
+            controller: _titleController,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Task title',
+              hintStyle: const TextStyle(color: AppColors.textSecondary),
+              filled: true,
+              fillColor: AppColors.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           const Text('Description', style: TextStyle(color: AppColors.textPrimary)),
           const SizedBox(height: 8),
-          TextField(controller: _descriptionController, maxLines: 4, decoration: const InputDecoration(hintText: 'Task description')),
+          TextField(
+            controller: _descriptionController,
+            maxLines: 4,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Task description',
+              hintStyle: const TextStyle(color: AppColors.textSecondary),
+              filled: true,
+              fillColor: AppColors.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
@@ -113,12 +142,22 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: _priority,
+                  dropdownColor: AppColors.surface,
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
                   items: const [
-                    DropdownMenuItem(value: 'High', child: Text('High')),
-                    DropdownMenuItem(value: 'Medium', child: Text('Medium')),
-                    DropdownMenuItem(value: 'Low', child: Text('Low')),
+                    DropdownMenuItem(value: 'high', child: Text('High')),
+                    DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                    DropdownMenuItem(value: 'low', child: Text('Low')),
                   ],
-                  onChanged: (v) => setState(() => _priority = v ?? 'Medium'),
+                  onChanged: (v) => setState(() => _priority = v ?? 'medium'),
                 ),
               ]),
             ),
@@ -130,7 +169,17 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                 TextField(
                   controller: TextEditingController(text: _category)..selection = TextSelection.collapsed(offset: _category.length),
                   onChanged: (v) => _category = v,
-                  decoration: const InputDecoration(hintText: 'e.g., Design'),
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'e.g., Design',
+                    hintStyle: const TextStyle(color: AppColors.textSecondary),
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
                 ),
               ]),
             ),
@@ -138,7 +187,20 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
           const SizedBox(height: 12),
           const Text('Assignees (comma separated)', style: TextStyle(color: AppColors.textPrimary)),
           const SizedBox(height: 8),
-          TextField(controller: _assigneesController, decoration: const InputDecoration(hintText: 'AS, MB')),
+          TextField(
+            controller: _assigneesController,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'AS, MB',
+              hintStyle: const TextStyle(color: AppColors.textSecondary),
+              filled: true,
+              fillColor: AppColors.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
           const SizedBox(height: 24),
           Row(children: [
             Expanded(

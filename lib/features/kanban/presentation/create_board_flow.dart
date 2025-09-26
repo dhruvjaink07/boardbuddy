@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:boardbuddy/core/theme/app_colors.dart';
-import 'package:get/get.dart'; // added
-import 'package:boardbuddy/routes/app_routes.dart'; // added
+import 'package:get/get.dart';
+import 'package:boardbuddy/routes/app_routes.dart';
+import 'package:boardbuddy/features/kanban/data/ai_board_service.dart';
+import 'package:boardbuddy/features/board/presentation/board_view_screen.dart';
+import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
 
 class CreateBoardPage extends StatefulWidget {
   const CreateBoardPage({super.key});
@@ -12,6 +15,7 @@ class CreateBoardPage extends StatefulWidget {
 
 class _CreateBoardPageState extends State<CreateBoardPage> {
   final TextEditingController _boardNameController = TextEditingController();
+  final TextEditingController _promptController = TextEditingController();
   String selectedTheme = "Purple Galaxy";
   Gradient selectedGradient = LinearGradient(
     colors: [AppColors.purple, AppColors.purpleLight],
@@ -19,8 +23,8 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
     end: Alignment.bottomRight,
   );
 
-  // ADDED: track start method ('ai' or 'manual')
   String selectedStartMethod = 'ai';
+  bool _isGenerating = false;
 
   void _selectTheme(String theme, Gradient gradient) {
     setState(() {
@@ -29,14 +33,88 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
     });
   }
 
-  void _createBoard() {
-    String boardName =
-        _boardNameController.text.isEmpty ? "Untitled Board" : _boardNameController.text;
+  Future<void> _createBoard() async {
+    String boardName = _boardNameController.text.isEmpty 
+        ? "Untitled Board" 
+        : _boardNameController.text;
 
-    // TODO: persist board
-    debugPrint("Board Created:");
-    debugPrint("Name: $boardName");
-    debugPrint("Theme: $selectedTheme");
+    if (selectedStartMethod == 'ai') {
+      await _createAIBoard(boardName);
+    } else {
+      _createManualBoard(boardName);
+    }
+  }
+
+  Future<void> _createAIBoard(String boardName) async {
+    final prompt = _promptController.text.trim();
+    if (prompt.isEmpty) {
+      Get.snackbar(
+        'Missing Prompt',
+        'Please describe your project or goal to generate the board.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.error.withOpacity(0.1),
+        colorText: AppColors.error,
+      );
+      return;
+    }
+
+    setState(() => _isGenerating = true);
+
+    try {
+      // Generate board using AI
+      final aiResponse = await AIBoardService.generateBoardFromPrompt(
+        boardName: boardName,
+        prompt: prompt,
+        theme: selectedTheme.toLowerCase().replaceAll(' ', '_'),
+        userId: 'user_123', // Replace with actual user ID
+      );
+
+      // Parse the AI response
+      final board = AIBoardService.parseBoard(aiResponse['board']);
+      final columns = AIBoardService.parseColumns(aiResponse['columns']);
+      final tasks = AIBoardService.parseTasks(aiResponse['tasks']);
+
+      // Group tasks by column
+      final tasksByColumn = <String, List<task_model.TaskCard>>{};
+      for (final column in columns) {
+        tasksByColumn[column.columnId] = tasks
+            .where((task) => task.columnId == column.columnId)
+            .toList();
+      }
+
+      // Navigate to board view
+      Get.off(() => BoardViewScreen(
+        board: board,
+        columnsMeta: columns,
+        tasksByColumn: tasksByColumn,
+      ));
+
+      Get.snackbar(
+        'Board Created Successfully!',
+        'Your AI-generated board is ready to use.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.success.withOpacity(0.1),
+        colorText: AppColors.success,
+        duration: const Duration(seconds: 3),
+      );
+
+    } catch (e) {
+      Get.snackbar(
+        'Generation Failed',
+        'Failed to generate board: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.error.withOpacity(0.1),
+        colorText: AppColors.error,
+        duration: const Duration(seconds: 4),
+      );
+    } finally {
+      setState(() => _isGenerating = false);
+    }
+  }
+
+  void _createManualBoard(String boardName) {
+    // Navigate to manual setup
+    Get.toNamed(AppRoutes.manualBoardSetupScreen);
   }
 
   @override
@@ -55,7 +133,6 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
           "Create New Board",
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
         ),
-        
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -92,7 +169,7 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
             ),
             const SizedBox(height: 12),
 
-            // REPLACED: clickable toggle cards
+            // Method Selection Cards
             Row(
               children: [
                 Expanded(
@@ -129,7 +206,7 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            "AI Prompt Generator",
+                            "AI Generator",
                             style: TextStyle(
                               color: AppColors.textPrimary,
                               fontWeight: FontWeight.bold,
@@ -149,9 +226,7 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
                 Expanded(
                   child: GestureDetector(
                     onTap: () {
-                      // select and navigate to manual setup screen via app routes
                       setState(() => selectedStartMethod = 'manual');
-                      Get.toNamed(AppRoutes.manualBoardSetupScreen);
                     },
                     child: Container(
                       padding: const EdgeInsets.all(16),
@@ -202,15 +277,18 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
             ),
             const SizedBox(height: 16),
 
-            // Prompt box (enabled only when AI is selected)
+            // AI Prompt Input
             TextField(
+              controller: _promptController,
               maxLines: 3,
               enabled: selectedStartMethod == 'ai',
               style: TextStyle(
                 color: selectedStartMethod == 'ai' ? AppColors.textPrimary : AppColors.textSecondary,
               ),
               decoration: InputDecoration(
-                hintText: selectedStartMethod == 'ai' ? "Write a short prompt..." : "Prompt disabled for manual setup",
+                hintText: selectedStartMethod == 'ai' 
+                    ? "Describe your project or goal in detail. e.g., 'Build a mobile app for food delivery with features like user registration, restaurant browsing, order management, and payment integration'"
+                    : "Prompt disabled for manual setup",
                 hintStyle: const TextStyle(color: AppColors.textSecondary),
                 filled: true,
                 fillColor: AppColors.surface,
@@ -228,6 +306,7 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
               style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
             ),
             const SizedBox(height: 12),
+            // Theme cards
             Row(
               children: [
                 Expanded(
@@ -332,10 +411,9 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
             ),
             const SizedBox(height: 12),
 
-            // REPLACED: nicer preview card
             _PreviewBoardWidget(
               gradient: selectedGradient,
-              title: _boardNameController.text.isEmpty ? "Final Year Project" : _boardNameController.text,
+              title: _boardNameController.text.isEmpty ? "Untitled Board" : _boardNameController.text,
             ),
             const SizedBox(height: 30),
 
@@ -350,12 +428,82 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
                     borderRadius: BorderRadius.circular(24),
                   ),
                 ),
-                onPressed: _createBoard,
-                child: const Text(
-                  "Create Board",
-                  style: TextStyle(color: AppColors.textPrimary, fontSize: 16),
-                ),
+                onPressed: _isGenerating ? null : _createBoard,
+                child: _isGenerating
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.textPrimary),
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            "Generating Board...",
+                            style: TextStyle(color: AppColors.textPrimary, fontSize: 16),
+                          ),
+                        ],
+                      )
+                    : Text(
+                        selectedStartMethod == 'ai' ? "Generate with AI" : "Create Board",
+                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 16),
+                      ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Fixed Theme Card method
+  Widget _themeCard(
+    String title,
+    String subtitle,
+    Gradient gradient,
+    IconData icon,
+    bool selected,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(16),
+          border: selected ? Border.all(color: AppColors.selectionGlow.withOpacity(0.9), width: 2) : null,
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.selectionGlow.withOpacity(0.16),
+                    blurRadius: 18,
+                    spreadRadius: 4,
+                    offset: const Offset(0, 6),
+                  )
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: AppColors.textPrimary, size: 28),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
           ],
         ),
@@ -364,80 +512,7 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
   }
 }
 
-// Fixed Theme Card
-Widget _themeCard(
-  String title,
-  String subtitle,
-  Gradient gradient,
-  IconData icon,
-  bool selected,
-  VoidCallback onTap,
-) {
-  return GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(16),
-        border: selected ? Border.all(color: AppColors.selectionGlow.withOpacity(0.9), width: 2) : null,
-        boxShadow: selected
-            ? [
-                BoxShadow(
-                  color: AppColors.selectionGlow.withOpacity(0.16),
-                  blurRadius: 18,
-                  spreadRadius: 4,
-                  offset: const Offset(0, 6),
-                )
-              ]
-            : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppColors.textPrimary, size: 28),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-// Preview Column
-class _PreviewColumn extends StatelessWidget {
-  final String title;
-  const _PreviewColumn(this.title);
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: AppColors.card.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Text(title, style: const TextStyle(color: AppColors.textPrimary)),
-        ),
-      ),
-    );
-  }
-}
-
-// New widget: visually improved preview (placed near bottom of file)
+// Move all preview-related classes outside of the main state class
 class _PreviewBoardWidget extends StatelessWidget {
   final Gradient gradient;
   final String title;
@@ -453,7 +528,6 @@ class _PreviewBoardWidget extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        // increased height for better proportions
         height: 150,
         decoration: BoxDecoration(
           gradient: gradient,
@@ -472,7 +546,6 @@ class _PreviewBoardWidget extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // subtle overlay
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -488,14 +561,11 @@ class _PreviewBoardWidget extends StatelessWidget {
                 ),
               ),
             ),
-
-            // content
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Board title
                   Text(
                     title,
                     style: const TextStyle(
@@ -505,8 +575,6 @@ class _PreviewBoardWidget extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-
-                  // Columns preview row (aligned and centered vertically)
                   Expanded(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -535,11 +603,9 @@ class _AlignedPreviewColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Each column stacks a small pill label at top and two mini-cards below aligned vertically
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Label pill aligned left within column
         Align(
           alignment: Alignment.centerLeft,
           child: Container(
@@ -559,8 +625,6 @@ class _AlignedPreviewColumn extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-
-        // Two stacked mini-cards with consistent spacing and rounded corners
         Expanded(
           child: Column(
             children: [

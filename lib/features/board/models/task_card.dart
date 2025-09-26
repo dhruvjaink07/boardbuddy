@@ -1,151 +1,230 @@
+import 'comment.dart';
+
 class TaskCard {
   final String id;
   final String title;
   final String description;
-
-  final String priority; // 'High'|'Medium'|'Low'
-  final String? category;
+  final String status;
+  final String priority;
+  final String? assigneeId;
+  final List<String> labels;
   final DateTime? dueDate;
-  final List<String> assignees;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final String columnId;
   final List<Subtask> subtasks;
   final List<Attachment> attachments;
-  final List<String> tags;
-
-  final String? createdBy;
-  final DateTime createdAt;
-  final DateTime lastUpdated;
-
-  final String status; // e.g. 'todo','inprogress','done'
+  final List<Comment> comments;
+  
+  final String category;
+  final List<String> assignees;
+  final double progress;
 
   TaskCard({
     required this.id,
     required this.title,
     this.description = '',
-    this.priority = 'Medium',
-    this.category,
-    this.dueDate,
-    List<String>? assignees,
-    List<Subtask>? subtasks,
-    List<Attachment>? attachments,
-    List<String>? tags,
-    this.createdBy,
-    DateTime? createdAt,
-    DateTime? lastUpdated,
     this.status = 'todo',
-  })  : assignees = assignees ?? [],
-        subtasks = subtasks ?? [],
-        attachments = attachments ?? [],
-        tags = tags ?? [],
-        createdAt = createdAt ?? DateTime.now(),
-        lastUpdated = lastUpdated ?? DateTime.now();
-
-  int get progress {
-    if (subtasks.isEmpty) return 0;
-    final done = subtasks.where((s) => s.done).length;
-    return ((done / subtasks.length) * 100).round();
-  }
+    this.priority = 'medium',
+    this.assigneeId,
+    this.labels = const [],
+    this.dueDate,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.columnId,
+    this.subtasks = const [],
+    this.attachments = const [],
+    this.comments = const [],
+    this.category = '',
+    this.assignees = const [],
+    this.progress = 0.0,
+  });
 
   TaskCard copyWith({
     String? id,
     String? title,
     String? description,
+    String? status,
     String? priority,
-    String? category,
+    String? assigneeId,
+    List<String>? labels,
     DateTime? dueDate,
-    List<String>? assignees,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? columnId,
     List<Subtask>? subtasks,
     List<Attachment>? attachments,
-    List<String>? tags,
-    String? createdBy,
-    DateTime? createdAt,
-    DateTime? lastUpdated,
-    String? status,
+    List<Comment>? comments,
+    String? category,
+    List<String>? assignees,
+    double? progress,
   }) {
     return TaskCard(
       id: id ?? this.id,
       title: title ?? this.title,
       description: description ?? this.description,
-      priority: priority ?? this.priority,
-      category: category ?? this.category,
-      dueDate: dueDate ?? this.dueDate,
-      assignees: assignees ?? List.from(this.assignees),
-      subtasks: subtasks ?? List.from(this.subtasks),
-      attachments: attachments ?? List.from(this.attachments),
-      tags: tags ?? List.from(this.tags),
-      createdBy: createdBy ?? this.createdBy,
-      createdAt: createdAt ?? this.createdAt,
-      lastUpdated: lastUpdated ?? this.lastUpdated,
       status: status ?? this.status,
+      priority: priority ?? this.priority,
+      assigneeId: assigneeId ?? this.assigneeId,
+      labels: labels ?? this.labels,
+      dueDate: dueDate ?? this.dueDate,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      columnId: columnId ?? this.columnId,
+      subtasks: subtasks ?? this.subtasks,
+      attachments: attachments ?? this.attachments,
+      comments: comments ?? this.comments,
+      category: category ?? this.category,
+      assignees: assignees ?? this.assignees,
+      progress: progress ?? this.progress,
     );
   }
 
-  Map<String, dynamic> toMap() => {
-        'id': id,
-        'title': title,
-        'description': description,
-        'priority': priority,
-        'category': category,
-        'dueDate': dueDate?.toIso8601String(),
-        'assignees': assignees,
-        'subtasks': subtasks.map((s) => s.toMap()).toList(),
-        'attachments': attachments.map((a) => a.toMap()).toList(),
-        'tags': tags,
-        'createdBy': createdBy,
-        'createdAt': createdAt.toIso8601String(),
-        'lastUpdated': lastUpdated.toIso8601String(),
-        'status': status,
-      };
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'status': status,
+      'priority': priority,
+      'assigneeId': assigneeId,
+      'labels': labels,
+      'dueDate': dueDate?.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'columnId': columnId,
+      'subtasks': subtasks.map((x) => x.toMap()).toList(),
+      'attachments': attachments.map((x) => x.toMap()).toList(),
+      'comments': comments.map((x) => x.toMap()).toList(),
+      'category': category,
+      'assignees': assignees,
+      'progress': progress,
+    };
+  }
 
   factory TaskCard.fromMap(Map<String, dynamic> map) {
-    String parseId(dynamic v) => v?.toString() ?? '';
-    DateTime? parseDate(dynamic v) {
-      if (v == null) return null;
-      if (v is DateTime) return v;
-      try {
-        return DateTime.parse(v.toString());
-      } catch (_) {
-        return null;
-      }
-    }
-
-    final subtasksRaw = (map['subtasks'] ?? []);
-    final attachmentsRaw = (map['attachments'] ?? []);
-
     return TaskCard(
-      id: parseId(map['id'] ?? map['cardId'] ?? map['card_id']),
-      title: (map['title'] ?? '').toString(),
-      description: (map['description'] ?? '').toString(),
-      priority: (map['priority'] ?? 'Medium').toString(),
-      category: map['category']?.toString(),
-      dueDate: parseDate(map['dueDate']),
-      assignees: List<String>.from(map['assignees'] ?? map['assigned'] ?? []),
-      subtasks: List<Map<String, dynamic>>.from(subtasksRaw).map((m) => Subtask.fromMap(m)).toList(),
-      attachments: List<Map<String, dynamic>>.from(attachmentsRaw).map((m) => Attachment.fromMap(m)).toList(),
-      tags: List<String>.from(map['tags'] ?? []),
-      createdBy: map['createdBy']?.toString(),
-      createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
-      lastUpdated: parseDate(map['lastUpdated']) ?? DateTime.now(),
-      status: (map['status'] ?? map['columnId'] ?? 'todo').toString(),
+      id: map['id'] ?? '',
+      title: map['title'] ?? '',
+      description: map['description'] ?? '',
+      status: map['status'] ?? 'todo',
+      priority: map['priority'] ?? 'medium',
+      assigneeId: map['assigneeId'],
+      labels: List<String>.from(map['labels'] ?? []),
+      dueDate: map['dueDate'] != null ? DateTime.parse(map['dueDate']) : null,
+      createdAt: DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(map['updatedAt'] ?? DateTime.now().toIso8601String()),
+      columnId: map['columnId'] ?? '',
+      subtasks: List<Subtask>.from(map['subtasks']?.map((x) => Subtask.fromMap(x)) ?? []),
+      attachments: List<Attachment>.from(map['attachments']?.map((x) => Attachment.fromMap(x)) ?? []),
+      comments: List<Comment>.from(map['comments']?.map((x) => Comment.fromMap(x)) ?? []),
+      category: map['category'] ?? '',
+      assignees: List<String>.from(map['assignees'] ?? []),
+      progress: (map['progress'] ?? 0.0).toDouble(),
     );
   }
 }
 
 class Subtask {
+  final String id;
   final String title;
-  final bool done;
-  Subtask({required this.title, this.done = false});
+  final bool isCompleted;
+  final DateTime createdAt;
 
-  Map<String, dynamic> toMap() => {'title': title, 'done': done};
-  factory Subtask.fromMap(Map<String, dynamic> m) =>
-      Subtask(title: m['title']?.toString() ?? '', done: m['done'] == true || (m['done']?.toString() == 'true'));
+  Subtask({
+    required this.id,
+    required this.title,
+    this.isCompleted = false,
+    required this.createdAt,
+  });
+
+  Subtask copyWith({
+    String? id,
+    String? title,
+    bool? isCompleted,
+    DateTime? createdAt,
+  }) {
+    return Subtask(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      isCompleted: isCompleted ?? this.isCompleted,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'isCompleted': isCompleted,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  factory Subtask.fromMap(Map<String, dynamic> map) {
+    return Subtask(
+      id: map['id'] ?? '',
+      title: map['title'] ?? '',
+      isCompleted: map['isCompleted'] ?? false,
+      createdAt: DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
+    );
+  }
 }
 
 class Attachment {
-  final String name;
-  final String url;
-  final String? type;
-  Attachment({required this.name, required this.url, this.type});
+  final String id;
+  final String fileName;
+  final String filePath;
+  final String fileType;
+  final int fileSize;
+  final DateTime uploadedAt;
 
-  Map<String, dynamic> toMap() => {'name': name, 'url': url, 'type': type};
-  factory Attachment.fromMap(Map<String, dynamic> m) => Attachment(name: m['name']?.toString() ?? '', url: m['url']?.toString() ?? '', type: m['type']?.toString());
+  Attachment({
+    required this.id,
+    required this.fileName,
+    required this.filePath,
+    required this.fileType,
+    required this.fileSize,
+    required this.uploadedAt,
+  });
+
+  Attachment copyWith({
+    String? id,
+    String? fileName,
+    String? filePath,
+    String? fileType,
+    int? fileSize,
+    DateTime? uploadedAt,
+  }) {
+    return Attachment(
+      id: id ?? this.id,
+      fileName: fileName ?? this.fileName,
+      filePath: filePath ?? this.filePath,
+      fileType: fileType ?? this.fileType,
+      fileSize: fileSize ?? this.fileSize,
+      uploadedAt: uploadedAt ?? this.uploadedAt,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'fileName': fileName,
+      'filePath': filePath,
+      'fileType': fileType,
+      'fileSize': fileSize,
+      'uploadedAt': uploadedAt.toIso8601String(),
+    };
+  }
+
+  factory Attachment.fromMap(Map<String, dynamic> map) {
+    return Attachment(
+      id: map['id'] ?? '',
+      fileName: map['fileName'] ?? '',
+      filePath: map['filePath'] ?? '', // Fixed this line
+      fileType: map['fileType'] ?? '',
+      fileSize: map['fileSize']?.toInt() ?? 0,
+      uploadedAt: DateTime.parse(map['uploadedAt'] ?? DateTime.now().toIso8601String()),
+    );
+  }
 }
