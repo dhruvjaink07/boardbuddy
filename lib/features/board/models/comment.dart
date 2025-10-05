@@ -1,4 +1,6 @@
-      class Comment {
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class Comment {
   final String commentId;
   final String cardId;
   final String userId;
@@ -13,19 +15,29 @@
     required this.timestamp,
   });
 
-  Map<String, dynamic> toMap() => {
-        'commentId': commentId,
-        'cardId': cardId,
-        'userId': userId,
-        'message': message,
-        'timestamp': timestamp.toIso8601String(),
-      };
+  Map<String, dynamic> toMap() {
+    return {
+      'cardId': cardId,
+      'userId': userId,
+      'message': message,
+      'timestamp': FieldValue.serverTimestamp(),
+    };
+  }
 
-  factory Comment.fromMap(Map<String, dynamic> map) => Comment(
-        commentId: map['commentId'],
-        cardId: map['cardId'],
-        userId: map['userId'],
-        message: map['message'],
-        timestamp: DateTime.parse(map['timestamp']),
-      );
+  factory Comment.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data() ?? {};
+    return Comment(
+      commentId: doc.id,
+      cardId: data['cardId'] ?? '',
+      userId: data['userId'] ?? '',
+      message: data['message'] ?? '',
+      timestamp: _asDate(data['timestamp']),
+    );
+  }
+
+  static DateTime _asDate(dynamic v) {
+    if (v is Timestamp) return v.toDate();
+    if (v is DateTime) return v;
+    return DateTime.now();
+  }
 }

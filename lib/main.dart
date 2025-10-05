@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
 import 'core/theme/app_theme.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,12 +18,15 @@ class BoardBuddyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final initial = FirebaseAuth.instance.currentUser == null
+        ? AppRoutes.authScreen
+        : AppRoutes.boardScreen; // replace with your boards/home route name
     return GetMaterialApp(
       title: 'BoardBuddy',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       getPages: AppRoutes.routes,
-      initialRoute: AppRoutes.mainScreen, // Define a splash route
+      initialRoute: initial,
     );
   }
 }

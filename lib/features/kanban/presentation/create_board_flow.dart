@@ -5,6 +5,8 @@ import 'package:boardbuddy/routes/app_routes.dart';
 import 'package:boardbuddy/features/kanban/data/ai_board_service.dart';
 import 'package:boardbuddy/features/board/presentation/board_view_screen.dart';
 import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
+import 'package:boardbuddy/features/board/data/board_firestore_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CreateBoardPage extends StatefulWidget {
   const CreateBoardPage({super.key});
@@ -58,21 +60,34 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
       return;
     }
 
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      Get.snackbar('Sign in required', 'Please sign in to generate a board.');
+      return;
+    }
+
     setState(() => _isGenerating = true);
 
     try {
-      // Generate board using AI
       final aiResponse = await AIBoardService.generateBoardFromPrompt(
         boardName: boardName,
         prompt: prompt,
         theme: selectedTheme.toLowerCase().replaceAll(' ', '_'),
-        userId: 'user_123', // Replace with actual user ID
+        userId: userId,
       );
 
       // Parse the AI response
-      final board = AIBoardService.parseBoard(aiResponse['board']);
+      final rawBoard = AIBoardService.parseBoard(aiResponse['board']);
       final columns = AIBoardService.parseColumns(aiResponse['columns']);
-      final tasks = AIBoardService.parseTasks(aiResponse['tasks']);
+      final List<task_model.TaskCard> tasks =
+          AIBoardService.parseTasks(aiResponse['tasks']).cast<task_model.TaskCard>();
+
+      final board = rawBoard.copyWith(
+        ownerId: userId,
+        memberIds: [userId],
+        createdAt: DateTime.now(),
+        lastUpdated: DateTime.now(),
+      );
 
       // Group tasks by column
       final tasksByColumn = <String, List<task_model.TaskCard>>{};
@@ -81,6 +96,13 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
             .where((task) => task.columnId == column.columnId)
             .toList();
       }
+
+      // Persist to Firestore
+      await BoardFirestoreService.instance.saveGeneratedBoard(
+        board: board,
+        columns: columns,
+        tasksByColumn: tasksByColumn,
+      );
 
       // Navigate to board view
       Get.off(() => BoardViewScreen(
@@ -126,7 +148,8 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => Get.toNamed(AppRoutes.boardScreen),
+          // FIX: pop instead of pushing another BoardScreen
+          onPressed: () => Get.back(),
         ),
         centerTitle: true,
         title: const Text(

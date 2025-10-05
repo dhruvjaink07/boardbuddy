@@ -6,6 +6,8 @@ import 'package:boardbuddy/features/board/models/board.dart';
 import 'package:boardbuddy/features/board/models/board_column.dart';
 import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
 import 'package:boardbuddy/features/board/presentation/board_view_screen.dart';
+import 'package:boardbuddy/features/board/data/board_firestore_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ManualBoardSetupScreen extends StatefulWidget {
   const ManualBoardSetupScreen({super.key});
@@ -68,7 +70,13 @@ class _ManualBoardSetupScreenState extends State<ManualBoardSetupScreen> {
     final description = _descriptionController.text.trim();
     final theme = _selectedTheme ?? 'forest';
 
-    // build column models from current stage controllers / values
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      Get.snackbar('Sign in required', 'Please sign in to create boards.');
+      return;
+    }
+
+    // build column models
     final columns = <BoardColumn>[];
     for (var i = 0; i < _stageControllers.length; i++) {
       final title = _stageControllers[i].text.trim();
@@ -76,7 +84,6 @@ class _ManualBoardSetupScreenState extends State<ManualBoardSetupScreen> {
       columns.add(BoardColumn(columnId: 'col_${i + 1}', title: title, order: i, createdAt: DateTime.now()));
     }
     if (columns.isEmpty) {
-      // fallback to default three columns
       columns.addAll([
         BoardColumn(columnId: 'todo', title: 'To Do', order: 0, createdAt: DateTime.now()),
         BoardColumn(columnId: 'inprogress', title: 'In Progress', order: 1, createdAt: DateTime.now()),
@@ -90,24 +97,31 @@ class _ManualBoardSetupScreenState extends State<ManualBoardSetupScreen> {
       name: name.isEmpty ? 'Untitled Board' : name,
       description: description,
       theme: theme,
-      ownerId: 'me',
-      memberIds: ['me'],
+      ownerId: uid,
+      memberIds: [uid],
       maxEditors: 5,
       createdAt: DateTime.now(),
       lastUpdated: DateTime.now(),
     );
 
-    // prepare empty typed task lists keyed by columnId
+    // empty tasks
     final tasksByColumn = <String, List<task_model.TaskCard>>{
       for (final c in columns) c.columnId: <task_model.TaskCard>[],
     };
 
-    // Use GetX navigation instead of regular Navigator
-    Get.to(() => BoardViewScreen(
-      board: board, 
-      columnsMeta: columns, 
+    // Persist to Firestore
+    BoardFirestoreService.instance.saveGeneratedBoard(
+      board: board,
+      columns: columns,
       tasksByColumn: tasksByColumn,
-    ));
+    ).then((_) {
+      // Navigate after save
+      Get.to(() => BoardViewScreen(
+        board: board, 
+        columnsMeta: columns, 
+        tasksByColumn: tasksByColumn,
+      ));
+    });
   }
 
   Widget _buildStageRow(int index, double height) {
@@ -382,12 +396,8 @@ class _ManualBoardSetupScreenState extends State<ManualBoardSetupScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
+                  // FIX: actually create the board
                   onPressed: _onCreateBoardPressed,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
                   child: const Text('Create Board', style: TextStyle(color: AppColors.textPrimary, fontSize: 16)),
                 ),
               ),

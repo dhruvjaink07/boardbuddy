@@ -1,9 +1,10 @@
-import 'package:boardbuddy/core/theme/app_colors.dart';
-import 'package:boardbuddy/core/utils/validators.dart';
 import 'package:boardbuddy/features/auth/presentation/widgets/auth_header.dart';
 import 'package:boardbuddy/features/auth/presentation/widgets/auth_form_container.dart';
 import 'package:boardbuddy/features/auth/presentation/widgets/auth_footer.dart';
+import 'package:boardbuddy/features/main_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:boardbuddy/features/kanban/presentation/create_board_flow.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -43,8 +44,29 @@ class _AuthScreenState extends State<AuthScreen>
 
   void _handleSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
-      // Handle login/signup logic here
-      print('Form is valid!');
+      final isSignUp = _tabController?.index == 1; // 0 = Login, 1 = Sign Up
+      print('Form is valid! isSignUp=$isSignUp');
+
+      if (isSignUp) {
+        // TODO: Call your sign-up API/service here
+        Get.snackbar(
+          'Welcome!',
+          'Your account was created successfully.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        // Go to the Create Board flow
+        Get.offAll(() => const MainScreen());
+      } else {
+        // TODO: Call your login API/service here
+        Get.snackbar(
+          'Logged in',
+          'Welcome back!',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        // Navigate to your boards/home screen
+        Get.offAll(() => const MainScreen());
+        // Or: Get.offAllNamed(AppRoutes.boardScreen);
+      }
     }
   }
 

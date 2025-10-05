@@ -20,7 +20,9 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _assigneesController;
-  String _priority = 'medium'; // Changed to lowercase
+  late TextEditingController _categoryController;
+
+  String _priority = 'medium';
   String _category = '';
 
   @override
@@ -29,8 +31,9 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     _titleController = TextEditingController(text: widget.task?.title ?? '');
     _descriptionController = TextEditingController(text: widget.task?.description ?? '');
     _assigneesController = TextEditingController(text: (widget.task?.assignees ?? []).join(', '));
-    _priority = widget.task?.priority ?? 'medium'; // Changed to lowercase
     _category = widget.task?.category ?? '';
+    _categoryController = TextEditingController(text: _category);
+    _priority = widget.task?.priority ?? 'medium';
   }
 
   @override
@@ -38,13 +41,25 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _assigneesController.dispose();
+    _categoryController.dispose();
     super.dispose();
   }
 
   void _onSave() {
     final title = _titleController.text.trim();
     final desc = _descriptionController.text.trim();
-    final assignees = _assigneesController.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final assignees = _assigneesController.text
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Title is required')),
+      );
+      return;
+    }
 
     final task = (widget.task == null)
         ? task_model.TaskCard.fromMap({
@@ -58,8 +73,8 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             'status': 'todo',
             'createdAt': DateTime.now().toIso8601String(),
             'updatedAt': DateTime.now().toIso8601String(),
-            'columnId': 'todo', // Add default columnId
-            'progress': 0.0, // Add default progress
+            'columnId': 'todo',
+            'progress': 0.0,
           })
         : widget.task!.copyWith(
             title: title,
@@ -67,7 +82,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             priority: _priority,
             category: _category,
             assignees: assignees,
-            updatedAt: DateTime.now(), // Changed from lastUpdated
+            lastUpdated: DateTime.now(), // fixed: use lastUpdated (not updatedAt)
           );
 
     Navigator.of(context).pop(TaskAction(action: 'save', task: task));
@@ -88,7 +103,10 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        title: Text(widget.task == null ? 'New Task' : 'Edit Task', style: const TextStyle(color: AppColors.textPrimary)),
+        title: Text(
+          widget.task == null ? 'New Task' : 'Edit Task',
+          style: const TextStyle(color: AppColors.textPrimary),
+        ),
         actions: [
           if (widget.task != null)
             IconButton(
@@ -167,7 +185,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                 const Text('Category', style: TextStyle(color: AppColors.textPrimary)),
                 const SizedBox(height: 8),
                 TextField(
-                  controller: TextEditingController(text: _category)..selection = TextSelection.collapsed(offset: _category.length),
+                  controller: _categoryController,
                   onChanged: (v) => _category = v,
                   style: const TextStyle(color: AppColors.textPrimary),
                   decoration: InputDecoration(
@@ -207,7 +225,10 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
               child: ElevatedButton(
                 onPressed: _onSave,
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                child: const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Text('Save', style: TextStyle(color: AppColors.textPrimary))),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                  child: Text('Save', style: TextStyle(color: AppColors.textPrimary)),
+                ),
               ),
             ),
           ]),

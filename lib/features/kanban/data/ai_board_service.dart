@@ -213,41 +213,11 @@ class AIBoardService {
   static List<TaskCard> parseTasks(List<dynamic> tasksData) {
     print('📝 Parsing ${tasksData.length} tasks...');
     return tasksData.map((taskData) {
-      // Parse subtasks
-      final subtasksData = taskData['subtasks'] as List<dynamic>? ?? [];
-      final subtasks = subtasksData.map((subtaskData) {
-        return Subtask(
-          id: subtaskData['id'] ?? '',
-          title: subtaskData['title'] ?? '',
-          isCompleted: subtaskData['isCompleted'] ?? false,
-          createdAt: DateTime.parse(subtaskData['createdAt'] ?? DateTime.now().toIso8601String()),
-        );
-      }).toList();
-
-      // Parse attachments (empty for AI generated)
-      final attachments = <Attachment>[];
-
-      return TaskCard(
-        id: taskData['id'] ?? '',
-        title: taskData['title'] ?? 'Untitled Task',
-        description: taskData['description'] ?? '',
-        status: taskData['status'] ?? 'todo',
-        priority: taskData['priority'] ?? 'medium',
-        assigneeId: taskData['assigneeId'],
-        labels: List<String>.from(taskData['labels'] ?? []),
-        dueDate: taskData['dueDate'] != null 
-            ? DateTime.parse(taskData['dueDate']) 
-            : null,
-        createdAt: DateTime.parse(taskData['createdAt'] ?? DateTime.now().toIso8601String()),
-        updatedAt: DateTime.parse(taskData['updatedAt'] ?? DateTime.now().toIso8601String()),
-        subtasks: subtasks,
-        attachments: attachments,
-        columnId: taskData['columnId'] ?? '',
-        // Add missing properties with defaults
-        category: taskData['category'] ?? 'General',
-        assignees: List<String>.from(taskData['assignees'] ?? []),
-        progress: (taskData['progress'] ?? 0.0).toDouble(),
-      );
+      final map = Map<String, dynamic>.from(taskData as Map);
+      // Normalize keys to our model
+      map['tags'] = map['tags'] ?? map['labels'] ?? const <String>[];
+      map['updatedAt'] = map['updatedAt'] ?? map['lastUpdated'];
+      return TaskCard.fromMap(map);
     }).toList();
   }
 }
