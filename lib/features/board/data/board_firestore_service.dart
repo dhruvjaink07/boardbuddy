@@ -12,6 +12,29 @@ class BoardFirestoreService {
   CollectionReference<Map<String, dynamic>> boardsCol() =>
       FirebaseFirestore.instance.collection('boards');
 
+  // Live count of members
+  Stream<int> membersCountStream(String boardId) {
+    return boardsCol()
+        .doc(boardId)
+        .collection('members')
+        .snapshots()
+        .map((s) => s.docs.length);
+  }
+
+  // Live list of members (uid + role)
+  Stream<List<Map<String, String>>> membersStream(String boardId) {
+    return boardsCol()
+        .doc(boardId)
+        .collection('members')
+        .snapshots()
+        .map((s) => s.docs
+            .map((d) => {
+                  'uid': d.id,
+                  'role': (d.data()['role'] as String?) ?? 'viewer',
+                })
+            .toList());
+  }
+
   // No orderBy to avoid composite index during testing
   Stream<List<Board>> streamBoardsForUser(String userId) {
     return boardsCol()
@@ -157,6 +180,46 @@ class BoardFirestoreService {
     await batch.commit();
   }
 
+  // Stream a single board
+  Stream<Board> streamBoard(String boardId) {
+    return boardsCol().doc(boardId).snapshots().map((d) => Board.fromDoc(d));
+  }
+
+  // Update board metadata (name/description/theme/maxEditors)
+  Future<void> updateBoardMeta({
+    required String boardId,
+    String? name,
+    String? description,
+    String? theme,
+    int? maxEditors,
+  }) async {
+    final map = <String, dynamic>{
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (theme != null) 'theme': theme,
+      if (maxEditors != null) 'maxEditors': maxEditors,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    };
+    if (map.length == 1) return; // only lastUpdated – nothing to update
+    await boardsCol().doc(boardId).set(map, SetOptions(merge: true));
+  }
+
+  // Quick stats for settings page
+  Future<int> countColumns(String boardId) async {
+    final qs = await boardsCol().doc(boardId).collection('columns').get();
+    return qs.size;
+  }
+
+  Future<int> countCards(String boardId) async {
+    int total = 0;
+    final cols = await boardsCol().doc(boardId).collection('columns').get();
+    for (final c in cols.docs) {
+      final agg = await c.reference.collection('cards').count().get();
+      total += (agg.count ?? 0); // fix: count is int?
+    }
+    return total;
+  }
+
   // Role helpers
   Stream<String?> myRoleStream(String boardId) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -176,20 +239,64 @@ class BoardFirestoreService {
     return snap.data()?['role'] as String?;
   }
 
+  // Role for a specific user on a board
+  Stream<String?> roleStream(String boardId, String userId) {
+    return boardsCol()
+        .doc(boardId)
+        .collection('members')
+        .doc(userId)
+        .snapshots()
+        .map((d) => d.data()?['role'] as String?);
+  }
+
+  // Optional: transfer ownership safely (single owner)
+  Future<void> transferOwnership({
+    required String boardId,
+    required String newOwnerId,
+  }) async {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUid == null) throw Exception('Not signed in');
+
+    await FirebaseFirestore.instance.runTransaction((tx) async {
+      final boardRef = boardsCol().doc(boardId);
+      final boardSnap = await tx.get(boardRef);
+      final data = boardSnap.data() as Map<String, dynamic>? ?? {};
+      final ownerId = data['ownerId'] as String?;
+      if (ownerId != currentUid) throw Exception('Only current owner can transfer ownership');
+
+      final newOwnerRef = boardRef.collection('members').doc(newOwnerId);
+      final oldOwnerRef = boardRef.collection('members').doc(ownerId);
+
+      tx.update(boardRef, {
+        'ownerId': newOwnerId,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+      tx.set(newOwnerRef, {'role': 'owner', 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+      tx.set(oldOwnerRef, {'role': 'editor', 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    });
+
+    // Make sure new owner is in memberIds
+    await boardsCol().doc(boardId).update({
+      'memberIds': FieldValue.arrayUnion([newOwnerId]),
+    });
+  }
+
   // Member management (owner only per rules)
   Future<void> addMember({
     required String boardId,
     required String userId,
     required String role, // 'editor' | 'viewer'
   }) async {
+    // Prevent adding another "owner" through this path
+    final safeRole = role == 'owner' ? 'editor' : role;
+
     final ref = boardsCol().doc(boardId).collection('members').doc(userId);
     await ref.set({
-      'role': role,
+      'role': safeRole,
       'addedAt': FieldValue.serverTimestamp(),
       'addedBy': FirebaseAuth.instance.currentUser?.uid,
     }, SetOptions(merge: true));
 
-    // Keep legacy memberIds in sync for BoardScreen query
     await boardsCol().doc(boardId).update({
       'memberIds': FieldValue.arrayUnion([userId]),
       'lastUpdated': FieldValue.serverTimestamp(),
@@ -211,7 +318,26 @@ class BoardFirestoreService {
     required String boardId,
     required String userId,
   }) async {
-    await boardsCol().doc(boardId).collection('members').doc(userId).delete();
+    final db = FirebaseFirestore.instance;
+    final boardRef = boardsCol().doc(boardId);
+    final memberRef = boardRef.collection('members').doc(userId);
+
+    await db.runTransaction((tx) async {
+      final boardSnap = await tx.get(boardRef);
+      final data = boardSnap.data() as Map<String, dynamic>? ?? {};
+      final ownerId = data['ownerId'] as String?;
+
+      if (ownerId == userId) {
+        throw Exception('Cannot remove the owner');
+      }
+
+      // delete role doc and update array in one atomic step
+      tx.delete(memberRef);
+      tx.update(boardRef, {
+        'memberIds': FieldValue.arrayRemove([userId]),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+    });
   }
 
   // Enhanced member invitation (handles both registered and unregistered users)

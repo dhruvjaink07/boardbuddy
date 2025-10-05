@@ -9,6 +9,7 @@ import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
 // Add this import
 import 'package:boardbuddy/features/board/data/board_firestore_service.dart';
 import 'package:boardbuddy/features/board/presentation/widgets/invite_member_dialog.dart';
+import 'package:boardbuddy/features/board/presentation/board_settings_screen.dart';
 
 class BoardViewScreen extends StatefulWidget {
   final Board? board;
@@ -121,49 +122,55 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
           StreamBuilder<String?>(
             stream: BoardFirestoreService.instance.myRoleStream(_board.boardId),
             builder: (context, snap) {
-              final isOwner = (snap.data ?? '') == 'owner';
-              if (!isOwner) return const SizedBox.shrink();
-              return IconButton(
-                icon: const Icon(Icons.person_add),
-                onPressed: () async {
-                  showDialog(
-                    context: context,
-                    builder: (context) => InviteMemberDialog(
-                      onInvite: (userIdOrEmail, role) async {
-                        try {
-                          final result = await BoardFirestoreService.instance.inviteMember(
-                            boardId: _board.boardId,
-                            email: userIdOrEmail, // This could be email or UID
-                            role: role,
-                          );
-                          
-                          if (mounted) {
-                            final message = result == 'added' 
-                                ? 'Member added to board as $role'
-                                : 'Invitation sent! They\'ll be added when they sign up.';
-                            
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(message),
-                                backgroundColor: AppColors.success,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Failed to invite member: $e'),
-                                backgroundColor: AppColors.error,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                  );
-                },
-              );
+              final role = snap.data ?? 'viewer';
+              final isOwner = role == 'owner';
+              final canEdit = isOwner || role == 'editor';
+              return Row(children: [
+                if (isOwner)
+                  IconButton(
+                    icon: const Icon(Icons.person_add),
+                    onPressed: () async {
+                      showDialog(
+                        context: context,
+                        builder: (context) => InviteMemberDialog(
+                          onInvite: (userIdOrEmail, role) async {
+                            try {
+                              final result = await BoardFirestoreService.instance.inviteMember(
+                                boardId: _board.boardId,
+                                email: userIdOrEmail,
+                                role: role,
+                              );
+                              if (mounted) {
+                                final message = result == 'added'
+                                    ? 'Member added to board as $role'
+                                    : 'Invitation sent! They\'ll be added when they sign up.';
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(message), backgroundColor: AppColors.success),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Failed to invite member: $e'), backgroundColor: AppColors.error),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                if (canEdit)
+                  IconButton(
+                    tooltip: 'Settings',
+                    icon: const Icon(Icons.settings),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => BoardSettingsScreen(boardId: _board.boardId)),
+                      );
+                    },
+                  ),
+              ]);
             },
           ),
         ],

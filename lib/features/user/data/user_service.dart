@@ -111,4 +111,33 @@ class UserService {
       'acceptedAt': FieldValue.serverTimestamp(),
     });
   }
+
+  // Live user stream
+  Stream<AppUser?> streamUser(String uid) {
+    return _users.doc(uid).snapshots().map((d) => d.exists ? AppUser.fromDoc(d) : null);
+  }
+
+  // Update profile fields
+  Future<void> updateProfile({
+    required String uid,
+    String? displayName,
+    String? photoUrl,
+  }) async {
+    final data = <String, dynamic>{
+      if (displayName != null) 'displayName': displayName.trim(),
+      if (photoUrl != null) 'photoUrl': photoUrl.trim(),
+      'lastSeen': FieldValue.serverTimestamp(),
+    };
+    await _users.doc(uid).set(data, SetOptions(merge: true));
+  }
+
+  // Pending invitations stream by email
+  Stream<List<BoardInvitation>> invitationsStream(String email) {
+    return _invitations
+        .where('invitedEmail', isEqualTo: email.toLowerCase().trim())
+        .where('status', isEqualTo: 'pending')
+        .where('expiresAt', isGreaterThan: Timestamp.now())
+        .snapshots()
+        .map((s) => s.docs.map((d) => BoardInvitation.fromDoc(d)).toList());
+  }
 }

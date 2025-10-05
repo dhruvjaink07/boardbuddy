@@ -6,6 +6,7 @@ import 'package:boardbuddy/features/kanban/presentation/manual_board_setup_scree
 import 'package:boardbuddy/features/main_screen.dart';
 import 'package:boardbuddy/features/onboarding/onboarding_screen.dart';
 import 'package:boardbuddy/features/onboarding/splash_screen.dart';
+import 'package:boardbuddy/features/profile/presentation/profile_screen.dart';
 import 'package:get/get_navigation/src/routes/get_route.dart';
 
 class AppRoutes {
@@ -17,6 +18,7 @@ class AppRoutes {
   static const String boardViewScreen = '/board-view-screen';
   static const String createBoard = '/create-board-screen';
   static const String manualBoardSetupScreen = '/manual-board-setup';
+  static const String profileScreen = '/profile';
   static final List<GetPage> routes = [
     GetPage(name: splashScreen, page: () => SplashScreen()),
     GetPage(name: onBoardingScreen, page: () => OnboardingScreen()),
@@ -25,6 +27,7 @@ class AppRoutes {
     GetPage(name: mainScreen, page: () => MainScreen()),
     GetPage(name: boardViewScreen, page: () => BoardViewScreen()),
     GetPage(name: createBoard, page: () => CreateBoardPage()),
-    GetPage(name: manualBoardSetupScreen, page: ()=> ManualBoardSetupScreen())
+    GetPage(name: manualBoardSetupScreen, page: ()=> ManualBoardSetupScreen()),
+    GetPage(name: profileScreen, page: () => const ProfileScreen()),
   ];
 }

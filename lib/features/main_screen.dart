@@ -1,3 +1,4 @@
+import 'package:boardbuddy/features/profile/presentation/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:boardbuddy/core/theme/app_colors.dart';
 import 'package:boardbuddy/features/home/presentation/board_screen.dart';
@@ -16,9 +17,7 @@ class _MainScreenState extends State<MainScreen> {
   static final List<Widget> _screens = <Widget>[
     Center(child: Text('Analytics')),
     BoardScreen(),
-    // Center(child: Text('Assistant')),
-    // Center(child: Text('Notifications')),
-    Center(child: Text('Profile')),
+    ProfileScreen()
   ];
 
   void _onItemTapped(int index) {

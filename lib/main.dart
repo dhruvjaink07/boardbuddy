@@ -35,7 +35,7 @@ class BoardBuddyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final initial = FirebaseAuth.instance.currentUser == null
         ? AppRoutes.authScreen
-        : AppRoutes.boardScreen; // replace with your boards/home route name
+        : AppRoutes.mainScreen; // replace with your boards/home route name
     return GetMaterialApp(
       title: 'BoardBuddy',
       debugShowCheckedModeBanner: false,
