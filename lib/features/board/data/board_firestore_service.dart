@@ -19,6 +19,91 @@ class BoardFirestoreService {
         .map((s) => s.docs.map((d) => Board.fromDoc(d)).toList());
   }
 
+  // NEW: stream columns for a board
+  Stream<List<BoardColumn>> streamColumns(String boardId) {
+    return boardsCol()
+        .doc(boardId)
+        .collection('columns')
+        .orderBy('order')
+        .snapshots()
+        .map((s) => s.docs.map((d) => BoardColumn.fromDoc(d)).toList());
+  }
+
+  // NEW: stream cards for a column
+  Stream<List<TaskCard>> streamCards(String boardId, String columnId) {
+    return boardsCol()
+        .doc(boardId)
+        .collection('columns')
+        .doc(columnId)
+        .collection('cards')
+        .snapshots()
+        .map((s) => s.docs.map((d) => TaskCard.fromDoc(d, columnId)).toList());
+  }
+
+  // NEW: move card between columns (preserves id)
+  Future<void> moveCard({
+    required String boardId,
+    required String taskId,
+    required String fromColumn,
+    required String toColumn,
+  }) async {
+    final fromRef = boardsCol()
+        .doc(boardId)
+        .collection('columns')
+        .doc(fromColumn)
+        .collection('cards')
+        .doc(taskId);
+
+    final toRef = boardsCol()
+        .doc(boardId)
+        .collection('columns')
+        .doc(toColumn)
+        .collection('cards')
+        .doc(taskId);
+
+    await FirebaseFirestore.instance.runTransaction((tx) async {
+      final snap = await tx.get(fromRef);
+      if (!snap.exists) return;
+      final data = Map<String, dynamic>.from(snap.data() ?? {});
+      data['lastUpdated'] = FieldValue.serverTimestamp();
+      tx.set(toRef, data, SetOptions(merge: true));
+      tx.delete(fromRef);
+    });
+  }
+
+  // NEW: upsert card in a column
+  Future<String> upsertCard({
+    required String boardId,
+    required String columnId,
+    required TaskCard card,
+  }) async {
+    final cardsCol = boardsCol()
+        .doc(boardId)
+        .collection('columns')
+        .doc(columnId)
+        .collection('cards');
+
+    final docRef = card.id.isNotEmpty ? cardsCol.doc(card.id) : cardsCol.doc();
+    final payload = card.id.isNotEmpty ? card.toUpdateMap() : card.toCreateMap();
+    await docRef.set(payload, SetOptions(merge: true));
+    return docRef.id;
+  }
+
+  // NEW: delete card
+  Future<void> deleteCard({
+    required String boardId,
+    required String columnId,
+    required String taskId,
+  }) async {
+    final ref = boardsCol()
+        .doc(boardId)
+        .collection('columns')
+        .doc(columnId)
+        .collection('cards')
+        .doc(taskId);
+    await ref.delete();
+  }
+
   Future<void> saveGeneratedBoard({
     required Board board,
     required List<BoardColumn> columns,
