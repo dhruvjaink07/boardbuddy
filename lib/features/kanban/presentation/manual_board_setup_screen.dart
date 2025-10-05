@@ -1,4 +1,3 @@
-import 'package:boardbuddy/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:boardbuddy/core/theme/app_colors.dart';
 import 'package:get/route_manager.dart';
@@ -115,12 +114,29 @@ class _ManualBoardSetupScreenState extends State<ManualBoardSetupScreen> {
       columns: columns,
       tasksByColumn: tasksByColumn,
     ).then((_) {
-      // Navigate after save
-      Get.to(() => BoardViewScreen(
+      // Show success message and navigate
+      Get.snackbar(
+        'Board Created!',
+        'Your board has been created successfully.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.success.withOpacity(0.1),
+        colorText: AppColors.success,
+      );
+
+      // Navigate to board view
+      Get.off(() => BoardViewScreen(
         board: board, 
         columnsMeta: columns, 
         tasksByColumn: tasksByColumn,
       ));
+    }).catchError((error) {
+      Get.snackbar(
+        'Error',
+        'Failed to create board: $error',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.error.withOpacity(0.1),
+        colorText: AppColors.error,
+      );
     });
   }
 

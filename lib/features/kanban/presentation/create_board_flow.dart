@@ -250,6 +250,7 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
                   child: GestureDetector(
                     onTap: () {
                       setState(() => selectedStartMethod = 'manual');
+                      _createManualBoard(_boardNameController.text.toString());
                     },
                     child: Container(
                       padding: const EdgeInsets.all(16),

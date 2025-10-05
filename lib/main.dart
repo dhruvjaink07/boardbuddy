@@ -6,10 +6,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
 import 'core/theme/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:boardbuddy/features/user/data/user_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Listen for auth state changes and create/update user profile
+  FirebaseAuth.instance.authStateChanges().listen((User? user) {
+    if (user != null) {
+      UserService.instance.createOrUpdateUser(user);
+    }
+  });
+
   runApp(const ProviderScope(child: BoardBuddyApp()));
 }
 

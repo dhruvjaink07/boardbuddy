@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:boardbuddy/core/theme/app_colors.dart';
 import 'package:boardbuddy/features/board/presentation/widgets/kanban_column.dart';
-import 'package:boardbuddy/features/board/presentation/widgets/task_card.dart' as task_widget;
 import 'package:boardbuddy/features/board/presentation/task_details_screen.dart';
 import 'package:boardbuddy/features/board/models/board.dart';
 import 'package:boardbuddy/features/board/models/board_column.dart';
 import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
-import 'package:get/get.dart'; // Add this import
-import 'package:boardbuddy/routes/app_routes.dart'; // Add this import
+// Add this import
+// Add this import
 import 'package:boardbuddy/features/board/data/board_firestore_service.dart';
+import 'package:boardbuddy/features/board/presentation/widgets/invite_member_dialog.dart';
 
 class BoardViewScreen extends StatefulWidget {
   final Board? board;
@@ -126,40 +126,37 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
               return IconButton(
                 icon: const Icon(Icons.person_add),
                 onPressed: () async {
-                  final uidCtrl = TextEditingController();
-                  String role = 'editor';
-                  final ok = await showDialog<bool>(
+                  showDialog(
                     context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text('Add member by UID'),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextField(controller: uidCtrl, decoration: const InputDecoration(labelText: 'User UID')),
-                          const SizedBox(height: 8),
-                          DropdownButton<String>(
-                            value: role,
-                            items: const [
-                              DropdownMenuItem(value: 'editor', child: Text('Editor')),
-                              DropdownMenuItem(value: 'viewer', child: Text('Viewer')),
-                            ],
-                            onChanged: (v) => role = v ?? 'editor',
-                          ),
-                        ],
-                      ),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                        ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Add')),
-                      ],
+                    builder: (context) => InviteMemberDialog(
+                      onInvite: (userId, role) async {
+                        try {
+                          await BoardFirestoreService.instance.addMember(
+                            boardId: _board.boardId,
+                            userId: userId,
+                            role: role,
+                          );
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Member invited as $role'),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to invite member: $e'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        }
+                      },
                     ),
                   );
-                  if (ok == true && uidCtrl.text.trim().isNotEmpty) {
-                    await BoardFirestoreService.instance.addMember(
-                      boardId: _board.boardId,
-                      userId: uidCtrl.text.trim(),
-                      role: role,
-                    );
-                  }
                 },
               );
             },
