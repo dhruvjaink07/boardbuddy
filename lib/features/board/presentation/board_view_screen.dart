@@ -26,6 +26,8 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
   late List<BoardColumn> _columnsMeta;
   late Map<String, List<task_model.TaskCard>> _tasksByColumn;
 
+  List<BoardColumn> _liveColumns = const [];
+
   @override
   void initState() {
     super.initState();
@@ -117,6 +119,8 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
             return Center(child: Text('Failed to load columns', style: const TextStyle(color: AppColors.textSecondary)));
           }
           final cols = (colSnap.data ?? _columnsMeta)..sort((a, b) => a.order.compareTo(b.order));
+          _liveColumns = cols; // keep latest columns for FAB add
+
           if (cols.isEmpty) {
             return const Center(child: Text('No columns yet', style: TextStyle(color: AppColors.textSecondary)));
           }
@@ -168,11 +172,17 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
+          if (_liveColumns.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Add a column first')),
+            );
+            return;
+          }
           final action = await Navigator.of(context).push<TaskAction?>(
             MaterialPageRoute(builder: (_) => const TaskDetailsScreen()),
           );
           if (action == null || action.task == null) return;
-          final firstColId = (_columnsMeta.isNotEmpty ? _columnsMeta.first.columnId : 'todo');
+          final firstColId = _liveColumns.first.columnId; // use real board column
           await BoardFirestoreService.instance.upsertCard(
             boardId: _board.boardId,
             columnId: firstColId,

@@ -84,7 +84,12 @@ class BoardFirestoreService {
         .collection('cards');
 
     final docRef = card.id.isNotEmpty ? cardsCol.doc(card.id) : cardsCol.doc();
-    final payload = card.id.isNotEmpty ? card.toUpdateMap() : card.toCreateMap();
+    final isUpdate = card.id.isNotEmpty;
+    final payload = isUpdate ? card.toUpdateMap() : card.toCreateMap();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (!isUpdate && (payload['createdBy'] == null || (payload['createdBy'] as String).isEmpty)) {
+      payload['createdBy'] = uid ?? '';
+    }
     await docRef.set(payload, SetOptions(merge: true));
     return docRef.id;
   }
