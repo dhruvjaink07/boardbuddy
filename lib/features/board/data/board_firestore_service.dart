@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:boardbuddy/features/board/models/board.dart';
 import 'package:boardbuddy/features/board/models/board_column.dart';
 import 'package:boardbuddy/features/board/models/task_card.dart';
+import 'package:boardbuddy/features/user/data/user_service.dart';
 
 class BoardFirestoreService {
   BoardFirestoreService._();
@@ -211,6 +212,64 @@ class BoardFirestoreService {
     required String userId,
   }) async {
     await boardsCol().doc(boardId).collection('members').doc(userId).delete();
+  }
+
+  // Enhanced member invitation (handles both registered and unregistered users)
+  Future<String> inviteMember({
+    required String boardId,
+    required String email,
+    required String role,
+  }) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) throw Exception('Not signed in');
+
+    // First, try to find existing user
+    final existingUser = await UserService.instance.findUserByEmail(email);
+
+    if (existingUser != null) {
+      // User exists - add them directly
+      await addMember(
+        boardId: boardId,
+        userId: existingUser.uid,
+        role: role,
+      );
+      return 'added'; // User was added immediately
+    } else {
+      // User doesn't exist - create pending invitation
+      final board = await boardsCol().doc(boardId).get();
+      final boardData = board.data();
+      
+      await UserService.instance.createInvitation(
+        boardId: boardId,
+        boardName: boardData?['name'] ?? 'Board',
+        email: email,
+        role: role,
+        invitedBy: currentUser.uid,
+        invitedByName: currentUser.displayName ?? currentUser.email ?? 'Someone',
+      );
+      return 'invited'; // Invitation was sent
+    }
+  }
+
+  // Process pending invitations when user signs up
+  Future<void> processPendingInvitations(String userEmail) async {
+    final invitations = await UserService.instance.getPendingInvitations(userEmail);
+    
+    for (final invitation in invitations) {
+      try {
+        // Add user to board
+        await addMember(
+          boardId: invitation.boardId,
+          userId: FirebaseAuth.instance.currentUser!.uid,
+          role: invitation.role,
+        );
+        
+        // Mark invitation as accepted
+        await UserService.instance.acceptInvitation(invitation.invitationId);
+      } catch (e) {
+        print('Error processing invitation ${invitation.invitationId}: $e');
+      }
+    }
   }
 
   // // One-time backfill: create members/{uid} where memberIds already contains uid

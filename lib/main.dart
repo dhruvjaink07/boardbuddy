@@ -1,3 +1,4 @@
+import 'package:boardbuddy/features/board/data/board_firestore_service.dart';
 import 'package:boardbuddy/firebase_options.dart';
 import 'package:boardbuddy/routes/app_routes.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -13,9 +14,14 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Listen for auth state changes and create/update user profile
-  FirebaseAuth.instance.authStateChanges().listen((User? user) {
+  FirebaseAuth.instance.authStateChanges().listen((User? user) async {
     if (user != null) {
-      UserService.instance.createOrUpdateUser(user);
+      await UserService.instance.createOrUpdateUser(user);
+      
+      // Process any pending invitations
+      if (user.email != null) {
+        await BoardFirestoreService.instance.processPendingInvitations(user.email!);
+      }
     }
   });
 

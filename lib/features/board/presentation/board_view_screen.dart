@@ -129,17 +129,22 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
                   showDialog(
                     context: context,
                     builder: (context) => InviteMemberDialog(
-                      onInvite: (userId, role) async {
+                      onInvite: (userIdOrEmail, role) async {
                         try {
-                          await BoardFirestoreService.instance.addMember(
+                          final result = await BoardFirestoreService.instance.inviteMember(
                             boardId: _board.boardId,
-                            userId: userId,
+                            email: userIdOrEmail, // This could be email or UID
                             role: role,
                           );
+                          
                           if (mounted) {
+                            final message = result == 'added' 
+                                ? 'Member added to board as $role'
+                                : 'Invitation sent! They\'ll be added when they sign up.';
+                            
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Member invited as $role'),
+                                content: Text(message),
                                 backgroundColor: AppColors.success,
                               ),
                             );

@@ -18,6 +18,7 @@ class _InviteMemberDialogState extends State<InviteMemberDialog> {
   bool _isSearching = false;
   AppUser? _foundUser;
   String? _errorMessage;
+  bool _userExists = false;
 
   Future<void> _searchUser() async {
     final email = _emailController.text.trim();
@@ -27,14 +28,16 @@ class _InviteMemberDialogState extends State<InviteMemberDialog> {
       _isSearching = true;
       _errorMessage = null;
       _foundUser = null;
+      _userExists = false;
     });
 
     try {
       final user = await UserService.instance.findUserByEmail(email);
       setState(() {
         _foundUser = user;
+        _userExists = user != null;
         if (user == null) {
-          _errorMessage = 'User not found. They need to sign up first.';
+          _errorMessage = null; // Clear error - we'll show invitation option
         }
       });
     } catch (e) {
@@ -49,14 +52,24 @@ class _InviteMemberDialogState extends State<InviteMemberDialog> {
   }
 
   void _inviteUser() {
-    if (_foundUser != null) {
-      widget.onInvite(_foundUser!.uid, _selectedRole);
+    final email = _emailController.text.trim();
+    if (email.isNotEmpty) {
+      if (_foundUser != null) {
+        // Existing user
+        widget.onInvite(_foundUser!.uid, _selectedRole);
+      } else {
+        // Send email invitation
+        widget.onInvite(email, _selectedRole); // Pass email instead of UID
+      }
       Navigator.of(context).pop();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final email = _emailController.text.trim();
+    final canInvite = email.isNotEmpty && (email.contains('@') && email.contains('.'));
+
     return AlertDialog(
       backgroundColor: AppColors.surface,
       title: const Text(
@@ -112,69 +125,89 @@ class _InviteMemberDialogState extends State<InviteMemberDialog> {
             ),
             const SizedBox(height: 12),
             
-            // User found/error display
-            if (_errorMessage != null)
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: AppColors.error, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: const TextStyle(color: AppColors.error, fontSize: 12),
+            // User status display
+            if (_isSearching)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (email.isNotEmpty && canInvite) ...[
+              const SizedBox(height: 12),
+              if (_foundUser != null)
+                // User found - show existing user
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: AppColors.primary,
+                        child: Text(
+                          (_foundUser!.displayName ?? _foundUser!.email)[0].toUpperCase(),
+                          style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            
-            if (_foundUser != null)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.success.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: AppColors.primary,
-                      child: Text(
-                        (_foundUser!.displayName ?? _foundUser!.email)[0].toUpperCase(),
-                        style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _foundUser!.displayName ?? 'User',
+                              style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              _foundUser!.email,
+                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _foundUser!.displayName ?? 'User',
-                            style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                          ),
-                          Text(
-                            _foundUser!.email,
-                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                          ),
-                        ],
+                      const Icon(Icons.check_circle, color: AppColors.success),
+                    ],
+                  ),
+                )
+              else
+                // User not found - show invitation option
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.email_outlined, color: AppColors.primary, size: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Send Invitation',
+                              style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              'User will be invited via email to join $email',
+                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const Icon(Icons.check_circle, color: AppColors.success),
-                  ],
+                      const Icon(Icons.send, color: AppColors.primary),
+                    ],
+                  ),
                 ),
-              ),
-            
-            if (_foundUser != null) ...[
+            ],
+
+            // Role selection (show if user found OR valid email for invitation)
+            if ((_foundUser != null || (email.isNotEmpty && canInvite && !_isSearching))) ...[
               const SizedBox(height: 16),
               const Text(
                 'Select role:',
@@ -209,9 +242,12 @@ class _InviteMemberDialogState extends State<InviteMemberDialog> {
           child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
         ),
         ElevatedButton(
-          onPressed: _foundUser != null ? _inviteUser : null,
+          onPressed: canInvite ? _inviteUser : null,
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-          child: const Text('Invite', style: TextStyle(color: AppColors.textPrimary)),
+          child: Text(
+            _foundUser != null ? 'Add to Board' : 'Send Invitation',
+            style: const TextStyle(color: AppColors.textPrimary),
+          ),
         ),
       ],
     );
