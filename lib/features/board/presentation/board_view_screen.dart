@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:boardbuddy/core/theme/app_colors.dart';
 import 'package:boardbuddy/features/board/presentation/widgets/kanban_column.dart';
-import 'package:boardbuddy/features/board/presentation/widgets/task_card.dart';
+import 'package:boardbuddy/features/board/presentation/widgets/task_card.dart' as task_widget;
 import 'package:boardbuddy/features/board/presentation/task_details_screen.dart';
 import 'package:boardbuddy/features/board/models/board.dart';
 import 'package:boardbuddy/features/board/models/board_column.dart';
@@ -27,6 +27,25 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
   late Map<String, List<task_model.TaskCard>> _tasksByColumn;
 
   List<BoardColumn> _liveColumns = const [];
+
+  Future<void> _addTask() async {
+    if (_liveColumns.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add a column first')),
+      );
+      return;
+    }
+    final firstColId = _liveColumns.first.columnId;
+    final action = await Navigator.of(context).push<TaskAction?>(
+      MaterialPageRoute(builder: (_) => const TaskDetailsScreen()),
+    );
+    if (action == null || action.task == null) return;
+    await BoardFirestoreService.instance.upsertCard(
+      boardId: _board.boardId,
+      columnId: firstColId,
+      card: action.task!.copyWith(columnId: firstColId),
+    );
+  }
 
   @override
   void initState() {
@@ -97,103 +116,137 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () {
-            // Always navigate to main board screen, not the previous screen
-            Get.offAllNamed(AppRoutes.mainScreen);
-          },
-        ),
-        title: Text(_board.name, style: const TextStyle(color: AppColors.textPrimary)),
+        title: Text(_board.name),
+        actions: [
+          StreamBuilder<String?>(
+            stream: BoardFirestoreService.instance.myRoleStream(_board.boardId),
+            builder: (context, snap) {
+              final isOwner = (snap.data ?? '') == 'owner';
+              if (!isOwner) return const SizedBox.shrink();
+              return IconButton(
+                icon: const Icon(Icons.person_add),
+                onPressed: () async {
+                  final uidCtrl = TextEditingController();
+                  String role = 'editor';
+                  final ok = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Add member by UID'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(controller: uidCtrl, decoration: const InputDecoration(labelText: 'User UID')),
+                          const SizedBox(height: 8),
+                          DropdownButton<String>(
+                            value: role,
+                            items: const [
+                              DropdownMenuItem(value: 'editor', child: Text('Editor')),
+                              DropdownMenuItem(value: 'viewer', child: Text('Viewer')),
+                            ],
+                            onChanged: (v) => role = v ?? 'editor',
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                        ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Add')),
+                      ],
+                    ),
+                  );
+                  if (ok == true && uidCtrl.text.trim().isNotEmpty) {
+                    await BoardFirestoreService.instance.addMember(
+                      boardId: _board.boardId,
+                      userId: uidCtrl.text.trim(),
+                      role: role,
+                    );
+                  }
+                },
+              );
+            },
+          ),
+        ],
       ),
-      body: StreamBuilder<List<BoardColumn>>(
-        stream: BoardFirestoreService.instance.streamColumns(_board.boardId),
-        builder: (context, colSnap) {
-          if (colSnap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-          }
-          if (colSnap.hasError) {
-            return Center(child: Text('Failed to load columns', style: const TextStyle(color: AppColors.textSecondary)));
-          }
-          final cols = (colSnap.data ?? _columnsMeta)..sort((a, b) => a.order.compareTo(b.order));
-          _liveColumns = cols; // keep latest columns for FAB add
+      body: StreamBuilder<String?>(
+        stream: BoardFirestoreService.instance.myRoleStream(_board.boardId),
+        builder: (context, roleSnap) {
+          final role = roleSnap.data ?? 'viewer';
+          final canEdit = role == 'owner' || role == 'editor';
 
-          if (cols.isEmpty) {
-            return const Center(child: Text('No columns yet', style: TextStyle(color: AppColors.textSecondary)));
-          }
-
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: cols.map((colMeta) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: StreamBuilder<List<task_model.TaskCard>>(
-                    stream: BoardFirestoreService.instance.streamCards(_board.boardId, colMeta.columnId),
-                    builder: (context, taskSnap) {
-                      final tasks = taskSnap.data ?? const <task_model.TaskCard>[];
-                      return KanbanColumn(
-                        title: colMeta.title,
-                        tasks: tasks,
-                        columnId: colMeta.columnId,
-                        onTaskMoved: _onTaskMoved,
-                        onTaskLongPress: (task, pos) {},
-                        onTaskTap: (task) async {
-                          final action = await Navigator.of(context).push<TaskAction?>(
-                            MaterialPageRoute(builder: (_) => TaskDetailsScreen(task: task)),
+          return Column(
+            children: [
+              // Columns + cards
+              Expanded(
+                child: StreamBuilder<List<BoardColumn>>(
+                  stream: BoardFirestoreService.instance.streamColumns(_board.boardId),
+                  builder: (context, colSnap) {
+                    final cols = (colSnap.data ?? const <BoardColumn>[]);
+                    _liveColumns = cols; // use real columns for FAB add
+                    if (cols.isEmpty) {
+                      return const Center(child: Text('No columns yet'));
+                    }
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: cols.map((col) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: StreamBuilder<List<task_model.TaskCard>>(
+                              stream: BoardFirestoreService.instance.streamCards(_board.boardId, col.columnId),
+                              builder: (context, taskSnap) {
+                                final tasks = taskSnap.data ?? const <task_model.TaskCard>[];
+                                return KanbanColumn(
+                                  title: col.title,
+                                  tasks: tasks,
+                                  columnId: col.columnId,
+                                  onTaskMoved: canEdit ? _onTaskMoved : (_, __, ___) {}, // no-op for viewers
+                                  onTaskTap: (task) async {
+                                    if (!canEdit) return;
+                                    final result = await Navigator.of(context).push<TaskAction?>(
+                                      MaterialPageRoute(builder: (_) => TaskDetailsScreen(task: task)),
+                                    );
+                                    if (result?.action == 'save' && result?.task != null) {
+                                      await BoardFirestoreService.instance.upsertCard(
+                                        boardId: _board.boardId,
+                                        columnId: col.columnId,
+                                        card: result!.task!,
+                                      );
+                                    } else if (result?.action == 'delete' && result?.task != null) {
+                                      await BoardFirestoreService.instance.deleteCard(
+                                        boardId: _board.boardId,
+                                        columnId: col.columnId,
+                                        taskId: result!.task!.id,
+                                      );
+                                    }
+                                  },
+                                  onTaskLongPress: (task, pos) {}, // optional
+                                );
+                              },
+                            ),
                           );
-                          if (action == null) return;
-                          if (action.action == 'delete' && action.task != null) {
-                            await BoardFirestoreService.instance.deleteCard(
-                              boardId: _board.boardId,
-                              columnId: colMeta.columnId,
-                              taskId: action.task!.id,
-                            );
-                          } else if (action.action == 'save' && action.task != null) {
-                            await BoardFirestoreService.instance.upsertCard(
-                              boardId: _board.boardId,
-                              columnId: colMeta.columnId,
-                              card: action.task!,
-                            );
-                          }
-                        },
-                      );
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
+                        }).toList(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          if (_liveColumns.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Add a column first')),
-            );
-            return;
-          }
-          final action = await Navigator.of(context).push<TaskAction?>(
-            MaterialPageRoute(builder: (_) => const TaskDetailsScreen()),
-          );
-          if (action == null || action.task == null) return;
-          final firstColId = _liveColumns.first.columnId; // use real board column
-          await BoardFirestoreService.instance.upsertCard(
-            boardId: _board.boardId,
-            columnId: firstColId,
-            card: action.task!.copyWith(columnId: firstColId),
+      floatingActionButton: StreamBuilder<String?>(
+        stream: BoardFirestoreService.instance.myRoleStream(_board.boardId),
+        builder: (context, roleSnap) {
+          final role = roleSnap.data ?? 'viewer';
+          final canEdit = role == 'owner' || role == 'editor';
+          if (!canEdit) return const SizedBox.shrink();
+          return FloatingActionButton.extended(
+            onPressed: _addTask, // your existing add-task flow
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text('Add Task'),
           );
         },
-        icon: const Icon(Icons.add, color: AppColors.textPrimary),
-        label: const Text('Add Task', style: TextStyle(color: AppColors.textPrimary)),
-        backgroundColor: AppColors.primary,
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

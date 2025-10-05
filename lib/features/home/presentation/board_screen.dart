@@ -228,6 +228,7 @@ class _BoardScreenState extends State<BoardScreen> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';

@@ -45,22 +45,25 @@ class TaskCard extends StatelessWidget {
             Text(description, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
           ],
           const SizedBox(height: 10),
-          Row(children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: priorityColor, borderRadius: BorderRadius.circular(6)),
-              child: Text(priority.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
-            ),
-            const SizedBox(width: 6),
-            if (category.isNotEmpty)
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: _getCategoryColor(category), borderRadius: BorderRadius.circular(6)),
-                child: Text(category, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                decoration: BoxDecoration(color: priorityColor, borderRadius: BorderRadius.circular(6)),
+                child: Text(priority.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
               ),
-            const Spacer(),
-            Text(dueDateStr, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-          ]),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: AppColors.textSecondary.withOpacity(0.35), borderRadius: BorderRadius.circular(6)),
+                child: Text(category.isEmpty ? 'General' : category, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+              ),
+              const SizedBox(width: 6),
+              Text(dueDateStr, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+            ],
+          ),
           const SizedBox(height: 10),
           Row(children: [
             for (int i = 0; i < assignees.length && i < 3; i++)
