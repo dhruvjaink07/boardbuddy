@@ -86,7 +86,7 @@ class FileRepository {
     required String filename,
     int size = 0,
   }) async {
-   try {
+    try {
       final folder = 'boards/$boardId/cards/$cardId';
       final metadata = await CloudinaryService.instance.upload(
         file: kIsWeb ? null : file,
@@ -111,31 +111,17 @@ class FileRepository {
           .collection('cards')
           .doc(cardId);
 
-      // Append meta to attachments array
-     await cardRef.update({
+      await cardRef.update({
         'attachments': FieldValue.arrayUnion([meta.toMap()]),
         'lastUpdated': FieldValue.serverTimestamp(),
       }).timeout(const Duration(seconds: 10));
 
-      // Optional: also record at board-level "files"
-      final ref = _boards().doc(boardId).collection('files').doc();
-     await ref.set({
-        'id': ref.id,
-        'name': filename,
-        'url': metadata.url,
-        'type': metadata.fileType,
-        'size': metadata.size,
-        'uploadedBy': 'system',
-        'uploadedAt': metadata.uploadedAt.toIso8601String(),
-        'cardId': cardId,
-        'columnId': columnId,
-      }).timeout(const Duration(seconds: 10));
-
+      // Removed board-level files write for production
       return meta;
-   } catch (e) {
-     print('Error uploading file: $e');
-     rethrow;
-   }
+    } catch (e) {
+      print('Error uploading file: $e');
+      rethrow;
+    }
   }
 
   Future<void> removeAttachmentFromCard({

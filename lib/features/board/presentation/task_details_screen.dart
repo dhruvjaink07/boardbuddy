@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:boardbuddy/core/theme/app_colors.dart';
 import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
 import 'package:boardbuddy/features/files/presentation/file_list_view.dart';
-import 'package:boardbuddy/features/files/presentation/cloudinary_test_widget.dart';
 
 class TaskAction {
   final String action; // 'save' or 'delete'
@@ -246,9 +245,6 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
               cardId: widget.task!.id,
               attachments: widget.task!.attachments,
             ),
-            const SizedBox(height: 24),
-            // ADD THIS TEST WIDGET TEMPORARILY
-            const CloudinaryTestWidget(),
           ],
         ]),
       ),

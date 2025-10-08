@@ -80,7 +80,7 @@ class CloudinaryService {
   static final CloudinaryService instance = CloudinaryService._();
 
   static const String cloudName = 'dzkxylioj';
-  static const String uploadPreset = 'boardbuddy'; // FIXED: Remove /attachments from preset name
+  static const String uploadPreset = 'boardbuddy'; // production preset
   static const String uploadUrl = 'https://api.cloudinary.com/v1_1/$cloudName/auto/upload';
   static const String cacheBoxName = 'cloudinary_uploads';
 
@@ -176,60 +176,37 @@ class CloudinaryService {
     await init();
 
     try {
-      print('🚀 Starting Cloudinary upload...');
-      print('   Cloud Name: $cloudName');
-      print('   Upload Preset: $uploadPreset');
-      print('   Filename: $filename');
-      print('   Folder: $folder');
-
       final dio = Dio();
+      final safeName = filename.replaceAll(RegExp(r'\s+'), '_');
 
       final form = <String, dynamic>{
         'upload_preset': uploadPreset,
         'folder': folder,
         'resource_type': 'auto',
-        'public_id': '${folder}/${DateTime.now().millisecondsSinceEpoch}_${filename.replaceAll(' ', '_')}',
+        // Do NOT prefix folder here. Cloudinary prepends folder automatically.
+        'public_id': '${DateTime.now().millisecondsSinceEpoch}_$safeName',
       };
 
       if (kIsWeb) {
-        if (bytes == null) {
-          print('❌ No bytes provided for web upload');
-          return null;
-        }
+        if (bytes == null) return null;
         form['file'] = MultipartFile.fromBytes(bytes, filename: filename);
-        print('📱 Web upload: ${bytes.length} bytes');
       } else {
-        if (file == null) {
-          print('❌ No file provided for mobile upload');
-          return null;
-        }
+        if (file == null) return null;
         form['file'] = await MultipartFile.fromFile(file.path, filename: filename);
-        print('📱 Mobile upload: ${file.path}');
       }
 
-      print('📤 Form data prepared: ${form.keys.join(', ')}');
-
-      final formData = FormData.fromMap(form);
-      
-      // Add timeout and better error handling
       final res = await dio.post(
-        uploadUrl, 
-        data: formData,
+        uploadUrl,
+        data: FormData.fromMap(form),
         options: Options(
           receiveTimeout: const Duration(seconds: 60),
           sendTimeout: const Duration(seconds: 60),
-          validateStatus: (status) {
-            return status != null && status < 500; // Accept all status codes below 500
-          },
+          validateStatus: (s) => s != null && s < 500,
         ),
       );
 
-      print('📥 Response status: ${res.statusCode}');
-      print('📥 Response data: ${res.data}');
-
       if (res.statusCode == 200 && res.data is Map) {
         final data = res.data as Map<String, dynamic>;
-        
         final metadata = UploadedFileMetadata(
           filename: filename,
           url: data['secure_url'] ?? data['url'] ?? '',
@@ -240,27 +217,11 @@ class CloudinaryService {
           folder: folder,
           fileType: _detectFileType(filename),
         );
-
-        // Cache the metadata
         await _cacheUpload(metadata);
-        
-        print('✅ Upload successful!');
-        print('   URL: ${metadata.url}');
-        print('   Public ID: ${metadata.publicId}');
-        
         return metadata;
-      } else {
-        print('❌ Upload failed with status: ${res.statusCode}');
-        print('❌ Error response: ${res.data}');
-        return null;
       }
-    } catch (e) {
-      print('❌ CloudinaryService upload error: $e');
-      if (e is DioException) {
-        print('❌ Dio error type: ${e.type}');
-        print('❌ Dio error message: ${e.message}');
-        print('❌ Dio response: ${e.response?.data}');
-      }
+      return null;
+    } catch (_) {
       return null;
     }
   }
@@ -271,31 +232,6 @@ class CloudinaryService {
       print('💾 Cached upload metadata: ${metadata.publicId}');
     } catch (e) {
       print('❌ Failed to cache upload metadata: $e');
-    }
-  }
-
-  // Test method to verify upload preset
-  Future<bool> testUploadPreset() async {
-    try {
-      print('🧪 Testing upload preset...');
-      
-      // Create a tiny test file
-      final testData = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
-      
-      final dio = Dio();
-      final form = FormData.fromMap({
-        'upload_preset': uploadPreset,
-        'file': testData,
-        'folder': 'test',
-      });
-      
-      final response = await dio.post(uploadUrl, data: form);
-      
-      print('✅ Upload preset test successful: ${response.statusCode}');
-      return response.statusCode == 200;
-    } catch (e) {
-      print('❌ Upload preset test failed: $e');
-      return false;
     }
   }
 
