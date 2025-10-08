@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:boardbuddy/features/board/models/board.dart';
 import 'package:boardbuddy/features/board/models/board_column.dart';
-import 'package:boardbuddy/features/board/models/task_card.dart';
+import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
 import 'package:boardbuddy/features/user/data/user_service.dart';
 
 class BoardFirestoreService {
@@ -54,14 +54,14 @@ class BoardFirestoreService {
   }
 
   // NEW: stream cards for a column
-  Stream<List<TaskCard>> streamCards(String boardId, String columnId) {
+  Stream<List<task_model.TaskCard>> streamCards(String boardId, String columnId) {
     return boardsCol()
         .doc(boardId)
         .collection('columns')
         .doc(columnId)
         .collection('cards')
         .snapshots()
-        .map((s) => s.docs.map((d) => TaskCard.fromDoc(d, columnId)).toList());
+        .map((s) => s.docs.map((d) => task_model.TaskCard.fromDoc(d, columnId)).toList());
   }
 
   // NEW: move card between columns (preserves id)
@@ -96,11 +96,11 @@ class BoardFirestoreService {
   }
 
   // NEW: upsert card in a column
-  Future<String> upsertCard({
-    required String boardId,
-    required String columnId,
-    required TaskCard card,
-  }) async {
+   Future<String> upsertCard({
+     required String boardId,
+     required String columnId,
+    required task_model.TaskCard card,
+   }) async {
     final cardsCol = boardsCol()
         .doc(boardId)
         .collection('columns')
@@ -134,10 +134,10 @@ class BoardFirestoreService {
   }
 
   Future<void> saveGeneratedBoard({
-    required Board board,
-    required List<BoardColumn> columns,
-    required Map<String, List<TaskCard>> tasksByColumn,
-  }) async {
+     required Board board,
+     required List<BoardColumn> columns,
+    required Map<String, List<task_model.TaskCard>> tasksByColumn,
+   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) throw Exception('Not signed in');
 
@@ -168,7 +168,7 @@ class BoardFirestoreService {
       colData['createdAt'] = colData['createdAt'] ?? FieldValue.serverTimestamp();
       batch.set(colRef, colData, SetOptions(merge: true));
 
-      final cards = tasksByColumn[col.columnId] ?? const <TaskCard>[];
+      final cards = tasksByColumn[col.columnId] ?? const <task_model.TaskCard>[];
       for (final card in cards) {
         final cardRef = card.id.isNotEmpty
             ? colRef.collection('cards').doc(card.id)
@@ -396,6 +396,44 @@ class BoardFirestoreService {
         print('Error processing invitation ${invitation.invitationId}: $e');
       }
     }
+  }
+
+  Future<void> addAttachmentToCard({
+     required String boardId,
+     required String columnId,
+     required String cardId,
+    required task_model.AttachmentMeta meta,
+   }) async {
+    final ref = boardsCol()
+        .doc(boardId)
+        .collection('columns')
+        .doc(columnId)
+        .collection('cards')
+        .doc(cardId);
+
+    await ref.update({
+      'attachments': FieldValue.arrayUnion([meta.toMap()]),
+      'lastUpdated': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> removeAttachmentFromCard({
+     required String boardId,
+     required String columnId,
+     required String cardId,
+    required task_model.AttachmentMeta meta,
+   }) async {
+    final ref = boardsCol()
+        .doc(boardId)
+        .collection('columns')
+        .doc(columnId)
+        .collection('cards')
+        .doc(cardId);
+
+    await ref.update({
+      'attachments': FieldValue.arrayRemove([meta.toMap()]),
+      'lastUpdated': FieldValue.serverTimestamp(),
+    });
   }
 
   // // One-time backfill: create members/{uid} where memberIds already contains uid

@@ -37,7 +37,7 @@ class TaskCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(8)),
-              child: Text('${progressPct}%', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              child: Text('${(progressPct * 100).round()}%', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
             ),
           ]),
           if (description.isNotEmpty) ...[
@@ -84,13 +84,18 @@ class TaskCard extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
-                  value: (progressPct / 100).clamp(0.0, 1.0),
+                  value: progressPct.clamp(0.0, 1.0),
                   color: AppColors.primary,
                   backgroundColor: AppColors.surface.withOpacity(0.3),
                   minHeight: 6,
                 ),
               ),
             ),
+            if (task.attachments.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              const Icon(Icons.attach_file, size: 16, color: AppColors.textSecondary),
+              Text('${task.attachments.length}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+            ],
           ]),
         ]),
       ),
@@ -99,6 +104,8 @@ class TaskCard extends StatelessWidget {
 
   Color _getPriorityColor(String priority) {
     switch (priority.toLowerCase()) {
+      case 'urgent':
+        return const Color(0xFF991B1B);
       case 'high':
         return const Color(0xFFDC2626);
       case 'medium':

@@ -38,7 +38,7 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
     }
     final firstColId = _liveColumns.first.columnId;
     final action = await Navigator.of(context).push<TaskAction?>(
-      MaterialPageRoute(builder: (_) => const TaskDetailsScreen()),
+      MaterialPageRoute(builder: (_) => TaskDetailsScreen(boardId: _board.boardId)),
     );
     if (action == null || action.task == null) return;
     await BoardFirestoreService.instance.upsertCard(
@@ -208,11 +208,11 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
                                   title: col.title,
                                   tasks: tasks,
                                   columnId: col.columnId,
-                                  onTaskMoved: canEdit ? _onTaskMoved : (_, __, ___) {}, // no-op for viewers
+                                  onTaskMoved: canEdit ? _onTaskMoved : (_, __, ___) {}, 
                                   onTaskTap: (task) async {
                                     if (!canEdit) return;
                                     final result = await Navigator.of(context).push<TaskAction?>(
-                                      MaterialPageRoute(builder: (_) => TaskDetailsScreen(task: task)),
+                                      MaterialPageRoute(builder: (_) => TaskDetailsScreen(task: task, boardId: _board.boardId)),
                                     );
                                     if (result?.action == 'save' && result?.task != null) {
                                       await BoardFirestoreService.instance.upsertCard(
@@ -228,7 +228,7 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
                                       );
                                     }
                                   },
-                                  onTaskLongPress: (task, pos) {}, // optional
+                                  onTaskLongPress: (task, pos) {},
                                 );
                               },
                             ),

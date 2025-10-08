@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:boardbuddy/core/theme/app_colors.dart';
 import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
+import 'package:boardbuddy/features/files/presentation/file_list_view.dart';
 
 class TaskAction {
   final String action; // 'save' or 'delete'
@@ -9,8 +10,9 @@ class TaskAction {
 }
 
 class TaskDetailsScreen extends StatefulWidget {
+  final String boardId;
   final task_model.TaskCard? task;
-  const TaskDetailsScreen({super.key, this.task});
+  const TaskDetailsScreen({super.key, required this.boardId, this.task});
 
   @override
   State<TaskDetailsScreen> createState() => _TaskDetailsScreenState();
@@ -171,6 +173,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                     ),
                   ),
                   items: const [
+                    DropdownMenuItem(value: 'urgent', child: Text('Urgent')),
                     DropdownMenuItem(value: 'high', child: Text('High')),
                     DropdownMenuItem(value: 'medium', child: Text('Medium')),
                     DropdownMenuItem(value: 'low', child: Text('Low')),
@@ -232,6 +235,17 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
               ),
             ),
           ]),
+          const SizedBox(height: 24),
+          if (widget.task != null) ...[
+            const Text('Attachments', style: TextStyle(color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            TaskAttachmentsSection(
+              boardId: widget.boardId,
+              columnId: widget.task!.columnId,
+              cardId: widget.task!.id,
+              attachments: widget.task!.attachments,
+            ),
+          ],
         ]),
       ),
     );
