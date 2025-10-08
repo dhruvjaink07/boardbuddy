@@ -16,16 +16,57 @@ class AttachmentMeta {
   final String name;
   final String url;
   final String type;
+  final int? size;
+  final DateTime? uploadedAt;
 
-  AttachmentMeta({required this.name, required this.url, required this.type});
+  AttachmentMeta({
+    required this.name,
+    required this.url,
+    required this.type,
+    this.size,
+    this.uploadedAt,
+  });
 
-  Map<String, dynamic> toMap() => {'name': name, 'url': url, 'type': type};
+  String get formattedSize {
+    if (size == null || size! <= 0) return '';
+    final bytes = size!;
+    if (bytes < 1024) return '${bytes}B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)}GB';
+  }
+
+  Map<String, dynamic> toMap() => {
+    'name': name,
+    'url': url,
+    'type': type,
+    'size': size,
+    'uploadedAt': uploadedAt?.toIso8601String(),
+  };
 
   factory AttachmentMeta.fromMap(Map<String, dynamic> map) => AttachmentMeta(
-        name: map['name'] ?? '',
-        url: map['url'] ?? '',
-        type: map['type'] ?? '',
-      );
+    name: map['name'] ?? '',
+    url: map['url'] ?? '',
+    type: map['type'] ?? 'file',
+    size: map['size'] as int?,
+    uploadedAt: map['uploadedAt'] != null ? DateTime.tryParse(map['uploadedAt']) : null,
+  );
+
+  AttachmentMeta copyWith({
+    String? name,
+    String? url,
+    String? type,
+    int? size,
+    DateTime? uploadedAt,
+  }) {
+    return AttachmentMeta(
+      name: name ?? this.name,
+      url: url ?? this.url,
+      type: type ?? this.type,
+      size: size ?? this.size,
+      uploadedAt: uploadedAt ?? this.uploadedAt,
+    );
+  }
 }
 
 // Back-compat types used by some UI code and AI parsing

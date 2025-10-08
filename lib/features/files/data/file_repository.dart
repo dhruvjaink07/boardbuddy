@@ -25,6 +25,9 @@ class FileRepository {
     if (f.endsWith('.pdf')) return 'pdf';
     if (f.endsWith('.mp4') || f.endsWith('.mov') || f.endsWith('.webm')) return 'video';
     if (f.endsWith('.mp3') || f.endsWith('.wav')) return 'audio';
+    if (f.endsWith('.doc') || f.endsWith('.docx')) return 'document';
+    if (f.endsWith('.xls') || f.endsWith('.xlsx')) return 'spreadsheet';
+    if (f.endsWith('.ppt') || f.endsWith('.pptx')) return 'presentation';
     return 'file';
   }
 
@@ -37,24 +40,23 @@ class FileRepository {
     int size = 0,
   }) async {
     final folder = 'boards/$boardId';
-    final url = await CloudinaryService.instance.upload(
+    final metadata = await CloudinaryService.instance.upload(
       file: kIsWeb ? null : file,
       bytes: kIsWeb ? bytes : null,
       filename: filename,
       folder: folder,
     );
-    if (url == null) return null;
+    if (metadata == null) return null;
 
-    final type = _guessType(filename);
     final ref = _boards().doc(boardId).collection('files').doc();
     final model = FileAttachment(
       id: ref.id,
       name: filename,
-      url: url,
-      type: type,
-      size: size,
+      url: metadata.url,
+      type: metadata.fileType,
+      size: metadata.size,
       uploadedBy: 'system', // fill with uid in caller if needed
-      uploadedAt: DateTime.now(),
+      uploadedAt: metadata.uploadedAt,
     );
 
     await ref.set({
@@ -86,16 +88,21 @@ class FileRepository {
   }) async {
    try {
       final folder = 'boards/$boardId/cards/$cardId';
-      final url = await CloudinaryService.instance.upload(
+      final metadata = await CloudinaryService.instance.upload(
         file: kIsWeb ? null : file,
         bytes: kIsWeb ? bytes : null,
         filename: filename,
         folder: folder,
       ).timeout(const Duration(seconds: 45));
-      if (url == null) return null;
+      if (metadata == null) return null;
 
-      final type = _guessType(filename);
-      final meta = AttachmentMeta(name: filename, url: url, type: type);
+      final meta = AttachmentMeta(
+        name: filename,
+        url: metadata.url,
+        type: metadata.fileType,
+        size: metadata.size,
+        uploadedAt: metadata.uploadedAt,
+      );
 
       final cardRef = _boards()
           .doc(boardId)
@@ -115,11 +122,11 @@ class FileRepository {
      await ref.set({
         'id': ref.id,
         'name': filename,
-        'url': url,
-        'type': type,
-        'size': size,
+        'url': metadata.url,
+        'type': metadata.fileType,
+        'size': metadata.size,
         'uploadedBy': 'system',
-        'uploadedAt': DateTime.now().toIso8601String(),
+        'uploadedAt': metadata.uploadedAt.toIso8601String(),
         'cardId': cardId,
         'columnId': columnId,
       }).timeout(const Duration(seconds: 10));
