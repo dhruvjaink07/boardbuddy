@@ -7,8 +7,8 @@ class CloudinaryService {
   CloudinaryService._();
   static final CloudinaryService instance = CloudinaryService._();
 
-  static const String cloudName = 'dx28ndbq1';
-  static const String uploadPreset = 'skillBridge';
+  static const String cloudName = 'dzkxylioj';
+  static const String uploadPreset = 'boardbuddy/attachments';
 
   // Use resource_type=auto so images, pdf, etc. work
   static const String uploadUrl = 'https://api.cloudinary.com/v1_1/$cloudName/auto/upload';

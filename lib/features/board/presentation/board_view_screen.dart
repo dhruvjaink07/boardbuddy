@@ -10,6 +10,7 @@ import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
 import 'package:boardbuddy/features/board/data/board_firestore_service.dart';
 import 'package:boardbuddy/features/board/presentation/widgets/invite_member_dialog.dart';
 import 'package:boardbuddy/features/board/presentation/board_settings_screen.dart';
+import 'package:boardbuddy/features/comments/presentation/board_chat_screen.dart';
 
 class BoardViewScreen extends StatefulWidget {
   final Board? board;
@@ -119,6 +120,21 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
       appBar: AppBar(
         title: Text(_board.name),
         actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BoardChatScreen(
+                    boardId: _board.boardId,
+                    boardTitle: _board.name,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.chat_bubble_outline),
+            tooltip: 'Team Chat',
+          ),
           StreamBuilder<String?>(
             stream: BoardFirestoreService.instance.myRoleStream(_board.boardId),
             builder: (context, snap) {
@@ -234,9 +250,8 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
                             ),
                           );
                         }).toList(),
-                      ),
-                    );
-                  },
+                      ));
+                    }
                 ),
               ),
             ],
