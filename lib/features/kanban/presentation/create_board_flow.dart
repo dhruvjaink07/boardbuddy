@@ -84,7 +84,7 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
 
       final board = rawBoard.copyWith(
         ownerId: userId,
-        memberIds: [userId],
+        memberIds: [userId], // ENSURE owner is in memberIds
         createdAt: DateTime.now(),
         lastUpdated: DateTime.now(),
       );

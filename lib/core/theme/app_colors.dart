@@ -33,4 +33,6 @@ class AppColors {
   static const Color skyBlue = Color(0xFF38BDF8);
   // subtle selection glow
   static const Color selectionGlow = Color(0xFF7C3AED);
+
+  static Color info = Colors.grey;
 }

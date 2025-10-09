@@ -116,7 +116,6 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(_board.name),
         actions: [

@@ -1,9 +1,9 @@
-class BoardInsights {
+    class BoardInsights {
   final String boardId;
   final double projectHealthScore;
-  final Map<String, double> teamContribution; // userId → %
-  final Map<String, int> taskTrends; // "completed" → count
-  final Map<String, double> resourceUsage; // e.g., "timeSpent": hrs
+  final Map<String, double> teamContribution;
+  final Map<String, int> taskTrends;
+  final Map<String, double> resourceUsage;
 
   BoardInsights({
     required this.boardId,
@@ -14,19 +14,18 @@ class BoardInsights {
   });
 
   Map<String, dynamic> toMap() => {
-        'boardId': boardId,
-        'projectHealthScore': projectHealthScore,
-        'teamContribution': teamContribution,
-        'taskTrends': taskTrends,
-        'resourceUsage': resourceUsage,
-      };
+    'boardId': boardId,
+    'projectHealthScore': projectHealthScore,
+    'teamContribution': teamContribution,
+    'taskTrends': taskTrends,
+    'resourceUsage': resourceUsage,
+  };
 
   factory BoardInsights.fromMap(Map<String, dynamic> map) => BoardInsights(
-        boardId: map['boardId'],
-        projectHealthScore: (map['projectHealthScore'] ?? 0).toDouble(),
-        teamContribution:
-            Map<String, double>.from(map['teamContribution'] ?? {}),
-        taskTrends: Map<String, int>.from(map['taskTrends'] ?? {}),
-        resourceUsage: Map<String, double>.from(map['resourceUsage'] ?? {}),
-      );
+    boardId: map['boardId'] ?? '',
+    projectHealthScore: (map['projectHealthScore'] ?? 0.0).toDouble(),
+    teamContribution: Map<String, double>.from(map['teamContribution'] ?? {}),
+    taskTrends: Map<String, int>.from(map['taskTrends'] ?? {}),
+    resourceUsage: Map<String, double>.from(map['resourceUsage'] ?? {}),
+  );
 }

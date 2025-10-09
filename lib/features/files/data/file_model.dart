@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class FileAttachment {
   final String id;
   final String name;
@@ -33,6 +35,24 @@ class FileAttachment {
     type: map['type'] ?? '',
     size: map['size'] ?? 0,
     uploadedBy: map['uploadedBy'] ?? '',
-    uploadedAt: DateTime.tryParse(map['uploadedAt'] ?? '') ?? DateTime.now(),
+    uploadedAt: map['uploadedAt'] is Timestamp
+        ? (map['uploadedAt'] as Timestamp).toDate()
+        : DateTime.tryParse(map['uploadedAt'] ?? '') ?? DateTime.now(),
   );
+
+  // New: create from Firestore DocumentSnapshot
+  factory FileAttachment.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data() ?? {};
+    return FileAttachment(
+      id: doc.id,
+      name: data['name'] ?? '',
+      url: data['url'] ?? '',
+      type: data['type'] ?? '',
+      size: (data['size'] ?? 0) is int ? (data['size'] ?? 0) : int.tryParse('${data['size']}') ?? 0,
+      uploadedBy: data['uploadedBy'] ?? '',
+      uploadedAt: data['uploadedAt'] is Timestamp
+          ? (data['uploadedAt'] as Timestamp).toDate()
+          : DateTime.tryParse('${data['uploadedAt']}') ?? DateTime.now(),
+    );
+  }
 }

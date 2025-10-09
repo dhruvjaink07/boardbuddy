@@ -97,7 +97,7 @@ class _ManualBoardSetupScreenState extends State<ManualBoardSetupScreen> {
       description: description,
       theme: theme,
       ownerId: uid,
-      memberIds: [uid],
+      memberIds: [uid], // ENSURE owner is in memberIds
       maxEditors: 5,
       createdAt: DateTime.now(),
       lastUpdated: DateTime.now(),

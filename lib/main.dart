@@ -34,12 +34,13 @@ void main() async {
       try {
         await UserService.instance.createOrUpdateUser(user);
         print('✅ User profile updated: ${user.email}');
-        
-        // Process any pending invitations
         if (user.email != null) {
           await BoardFirestoreService.instance.processPendingInvitations(user.email!);
           print('✅ Pending invitations processed for: ${user.email}');
         }
+        // NEW: backfill cards so analytics can see them
+        await BoardFirestoreService.instance.backfillMyBoards();
+        print('✅ Backfilled boardId/columnId on cards');
       } catch (e) {
         print('❌ Error processing user auth: $e');
       }

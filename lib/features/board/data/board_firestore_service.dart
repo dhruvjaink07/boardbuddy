@@ -64,7 +64,56 @@ class BoardFirestoreService {
         .map((s) => s.docs.map((d) => task_model.TaskCard.fromDoc(d, columnId)).toList());
   }
 
-  // NEW: move card between columns (preserves id)
+  bool _isDoneSlug(String s) {
+    final x = (s).toLowerCase().trim();
+    return x.contains('done') || x.contains('complete') || x.contains('closed');
+  }
+
+  String _slugify(String? title) {
+    if (title == null) return '';
+    return title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+  }
+
+  // When upserting a card ensure boardId/columnId/status/isCompleted/completedAt are consistent
+  Future<String> upsertCard({
+    required String boardId,
+    required String columnId,
+    required task_model.TaskCard card,
+  }) async {
+    final cardsCol = boardsCol()
+        .doc(boardId)
+        .collection('columns')
+        .doc(columnId)
+        .collection('cards');
+
+    final docRef = card.id.isNotEmpty ? cardsCol.doc(card.id) : cardsCol.doc();
+    final isUpdate = card.id.isNotEmpty;
+
+    final payload = isUpdate ? card.toUpdateMap() : card.toCreateMap();
+
+    // denormalize for analytics
+    payload['boardId'] = boardId;
+    payload['columnId'] = columnId;
+
+    // normalize status
+    final statusStr = (payload['status'] ?? _slugify(card.status)).toString();
+    payload['status'] = statusStr;
+
+    // compute completion flags
+    final isDone = (payload['isCompleted'] == true) || _isDoneSlug(statusStr);
+    payload['isCompleted'] = isDone;
+    if (isDone) {
+      payload['completedAt'] = payload['completedAt'] ?? FieldValue.serverTimestamp();
+    } else {
+      // if explicitly moving out of done, clear completedAt
+      if (payload.containsKey('completedAt')) payload['completedAt'] = null;
+    }
+
+    await docRef.set(payload, SetOptions(merge: true));
+    return docRef.id;
+  }
+
+  // Move a card and keep completion flags in sync with the destination column
   Future<void> moveCard({
     required String boardId,
     required String taskId,
@@ -85,37 +134,30 @@ class BoardFirestoreService {
         .collection('cards')
         .doc(taskId);
 
+    // Read destination column title to derive status
+    final toColSnap = await boardsCol().doc(boardId).collection('columns').doc(toColumn).get();
+    final toTitle = (toColSnap.data()?['title'] ?? toColSnap.data()?['name'] ?? '').toString();
+    final toSlug = _slugify(toTitle);
+    final isDone = _isDoneSlug(toSlug);
+
     await FirebaseFirestore.instance.runTransaction((tx) async {
       final snap = await tx.get(fromRef);
       if (!snap.exists) return;
       final data = Map<String, dynamic>.from(snap.data() ?? {});
+      data['boardId'] = boardId;
+      data['columnId'] = toColumn;
+      data['status'] = (data['status'] ?? '').toString().isEmpty ? toSlug : data['status'];
+      data['isCompleted'] = isDone;
       data['lastUpdated'] = FieldValue.serverTimestamp();
+      if (isDone) {
+        data['completedAt'] = FieldValue.serverTimestamp();
+      } else {
+        data['completedAt'] = null;
+      }
+
       tx.set(toRef, data, SetOptions(merge: true));
       tx.delete(fromRef);
     });
-  }
-
-  // NEW: upsert card in a column
-   Future<String> upsertCard({
-     required String boardId,
-     required String columnId,
-    required task_model.TaskCard card,
-   }) async {
-    final cardsCol = boardsCol()
-        .doc(boardId)
-        .collection('columns')
-        .doc(columnId)
-        .collection('cards');
-
-    final docRef = card.id.isNotEmpty ? cardsCol.doc(card.id) : cardsCol.doc();
-    final isUpdate = card.id.isNotEmpty;
-    final payload = isUpdate ? card.toUpdateMap() : card.toCreateMap();
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (!isUpdate && (payload['createdBy'] == null || (payload['createdBy'] as String).isEmpty)) {
-      payload['createdBy'] = uid ?? '';     
-    }
-    await docRef.set(payload, SetOptions(merge: true));
-    return docRef.id;
   }
 
   // NEW: delete card
@@ -457,4 +499,37 @@ class BoardFirestoreService {
   //   }
   //   await batch.commit();
   // }
+
+  // NEW: one-time backfill so existing cards get boardId/columnId
+  Future<void> backfillCardBoardIdsForBoard(String boardId) async {
+    final boardRef = boardsCol().doc(boardId);
+    final cols = await boardRef.collection('columns').get();
+    final batch = FirebaseFirestore.instance.batch();
+    for (final c in cols.docs) {
+      final cards = await c.reference.collection('cards').get();
+      for (final card in cards.docs) {
+        final data = card.data();
+        final hasBoardId = data['boardId'] != null && '${data['boardId']}'.isNotEmpty;
+        final hasColumnId = data['columnId'] != null && '${data['columnId']}'.isNotEmpty;
+        if (!hasBoardId || !hasColumnId) {
+          batch.set(card.reference, {
+            'boardId': boardId,
+            'columnId': c.id,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
+      }
+    }
+    await batch.commit();
+  }
+
+  // NEW: backfill all boards you’re a member of
+  Future<void> backfillMyBoards() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final qs = await boardsCol().where('memberIds', arrayContains: uid).get();
+    for (final d in qs.docs) {
+      await backfillCardBoardIdsForBoard(d.id);
+    }
+  }
 }
