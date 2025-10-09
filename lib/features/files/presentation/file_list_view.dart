@@ -5,6 +5,7 @@ import 'package:boardbuddy/features/files/presentation/attachment_tile.dart';
 import 'package:boardbuddy/features/files/presentation/upload_button.dart';
 import 'package:boardbuddy/features/files/data/file_repository.dart';
 import 'package:boardbuddy/features/files/services/cloudinary_service.dart';
+import 'package:boardbuddy/features/files/presentation/open_file.dart';
 
 class TaskAttachmentsSection extends StatefulWidget {
   final String boardId;
@@ -200,6 +201,12 @@ class _TaskAttachmentsSectionState extends State<TaskAttachmentsSection> {
                             }
                           }
                         },
+                        onTap: () => openAttachmentViewer(
+                          context,
+                          name: attachment.name,
+                          url: attachment.url,
+                          type: attachment.type,
+                        ),
                       ),
                       if (index < widget.attachments.length - 1)
                         const Divider(height: 1, color: AppColors.border),

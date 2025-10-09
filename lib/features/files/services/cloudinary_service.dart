@@ -178,13 +178,19 @@ class CloudinaryService {
     try {
       final dio = Dio();
       final safeName = filename.replaceAll(RegExp(r'\s+'), '_');
+      // Strip extension to avoid .jpg.jpg URLs
+      final dot = safeName.lastIndexOf('.');
+      final nameNoExt = dot > 0 ? safeName.substring(0, dot) : safeName;
 
       final form = <String, dynamic>{
         'upload_preset': uploadPreset,
         'folder': folder,
         'resource_type': 'auto',
-        // Do NOT prefix folder here. Cloudinary prepends folder automatically.
-        'public_id': '${DateTime.now().millisecondsSinceEpoch}_$safeName',
+        // Do NOT prefix folder here; Cloudinary applies folder separately
+        'public_id': '${DateTime.now().millisecondsSinceEpoch}_$nameNoExt',
+        // Optionally rely on preset for unique/use_filename; these are safe defaults:
+        'use_filename': true,
+        'unique_filename': true,
       };
 
       if (kIsWeb) {
