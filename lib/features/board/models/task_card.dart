@@ -177,234 +177,171 @@ class Attachment {
 
 class TaskCard {
   final String id;
-  final String columnId; // location
   final String title;
   final String description;
-
-  // AI/compat fields (kept for UI and parsing)
-  final String status;        // 'todo' | 'in_progress' | 'done' ...
-  final String priority;      // 'low' | 'medium' | 'high' | 'urgent'
-  final String? assigneeId;   // single assignee id
-  final String category;      // e.g., 'General'
-  final List<String> assignees;
-  final double progress;      // 0.0 - 1.0
-  final List<String> labels;  // kept for compatibility
-
-  // Canonical fields for Firestore schema
-  final List<String> tags;
+  final String priority;
+  final String? category;
+  final double progress;
   final DateTime? dueDate;
+  final DateTime? createdAt;
+  final DateTime? lastUpdated;
+  final List<String> assignees;
+  final List<AttachmentMeta> attachments;
   final List<ChecklistItem> checklist;
-  final List<Subtask> subtasks;              // compat; mapped to checklist
-  final List<AttachmentMeta> attachments;    // Firestore shape
+  final String? status;
+  // NEW: Completion tracking fields
+  final bool? isCompleted;
+  final DateTime? completedAt;
+  // NEW: Analytics denormalization fields  
+  final String? boardId;
+  final String? columnId;
+  final String? assigneeId; // Make sure this field exists
 
-  final String createdBy;
-  final DateTime createdAt;
-  final DateTime lastUpdated;
-
-  // Alias for older code
-  DateTime get updatedAt => lastUpdated;
-
-  TaskCard({
+  const TaskCard({
     required this.id,
-    required this.columnId,
     required this.title,
     this.description = '',
-    this.status = 'todo',
     this.priority = 'medium',
-    this.assigneeId,
-    this.category = 'General',
-    this.assignees = const [],
+    this.category,
     this.progress = 0.0,
-    this.labels = const [],
-    this.tags = const [],
     this.dueDate,
-    this.checklist = const [],
-    this.subtasks = const [],
+    this.createdAt,
+    this.lastUpdated,
+    this.assignees = const [],
     this.attachments = const [],
-    this.createdBy = '',
-    required this.createdAt,
-    required this.lastUpdated,
+    this.checklist = const [],
+    this.status,
+    // NEW fields
+    this.isCompleted,
+    this.completedAt,
+    this.boardId,
+    this.columnId,
+    this.assigneeId,
   });
+
+  factory TaskCard.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc, String columnId) {
+    final data = doc.data() ?? {};
+    return TaskCard.fromMap(data, doc.id, columnId);
+  }
+
+  factory TaskCard.fromMap(Map<String, dynamic> map, [String? id, String? columnId]) {
+    return TaskCard(
+      id: id ?? map['id'] ?? '',
+      title: map['title'] ?? '',
+      description: map['description'] ?? '',
+      priority: map['priority'] ?? 'medium',
+      category: map['category'],
+      progress: (map['progress'] ?? 0.0).toDouble(),
+      dueDate: map['dueDate'] is Timestamp 
+        ? (map['dueDate'] as Timestamp).toDate()
+        : DateTime.tryParse(map['dueDate']?.toString() ?? ''),
+      createdAt: map['createdAt'] is Timestamp 
+        ? (map['createdAt'] as Timestamp).toDate()
+        : DateTime.tryParse(map['createdAt']?.toString() ?? ''),
+      lastUpdated: map['lastUpdated'] is Timestamp 
+        ? (map['lastUpdated'] as Timestamp).toDate()
+        : DateTime.tryParse(map['lastUpdated']?.toString() ?? ''),
+      assignees: List<String>.from(map['assignees'] ?? []),
+      attachments: (map['attachments'] as List<dynamic>?)
+          ?.map((a) => AttachmentMeta.fromMap(a as Map<String, dynamic>))
+          .toList() ?? [],
+      checklist: (map['checklist'] as List<dynamic>?)
+          ?.map((item) => ChecklistItem.fromMap(item as Map<String, dynamic>))
+          .toList() ?? [],
+      status: map['status'],
+      // NEW: Completion fields
+      isCompleted: map['isCompleted'] as bool?,
+      completedAt: map['completedAt'] is Timestamp 
+        ? (map['completedAt'] as Timestamp).toDate()
+        : DateTime.tryParse(map['completedAt']?.toString() ?? ''),
+      // NEW: Analytics fields
+      boardId: map['boardId'] ?? columnId,
+      columnId: map['columnId'] ?? columnId,
+      assigneeId: map['assigneeId'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      if (id.isNotEmpty) 'id': id,
+      'title': title,
+      'description': description,
+      'priority': priority,
+      if (category != null) 'category': category,
+      'progress': progress,
+      if (dueDate != null) 'dueDate': dueDate,
+      if (createdAt != null) 'createdAt': createdAt,
+      if (lastUpdated != null) 'lastUpdated': lastUpdated,
+      'assignees': assignees,
+      'attachments': attachments.map((a) => a.toMap()).toList(),
+      'checklist': checklist.map((item) => item.toMap()).toList(),
+      if (status != null) 'status': status,
+      // NEW: Completion fields
+      if (isCompleted != null) 'isCompleted': isCompleted,
+      if (completedAt != null) 'completedAt': completedAt,
+      // NEW: Analytics fields
+      if (boardId != null) 'boardId': boardId,
+      if (columnId != null) 'columnId': columnId,
+      if (assigneeId != null) 'assigneeId': assigneeId,
+    };
+  }
+
+  Map<String, dynamic> toCreateMap() {
+    final map = toMap();
+    map['createdAt'] = FieldValue.serverTimestamp();
+    map['lastUpdated'] = FieldValue.serverTimestamp();
+    return map;
+  }
+
+  Map<String, dynamic> toUpdateMap() {
+    final map = toMap();
+    map['lastUpdated'] = FieldValue.serverTimestamp();
+    return map;
+  }
 
   TaskCard copyWith({
     String? id,
-    String? columnId,
     String? title,
     String? description,
-    String? status,
     String? priority,
-    String? assigneeId,
     String? category,
-    List<String>? assignees,
     double? progress,
-    List<String>? labels,
-    List<String>? tags,
     DateTime? dueDate,
-    List<ChecklistItem>? checklist,
-    List<Subtask>? subtasks,
-    List<AttachmentMeta>? attachments,
-    String? createdBy,
     DateTime? createdAt,
     DateTime? lastUpdated,
+    List<String>? assignees,
+    List<AttachmentMeta>? attachments,
+    List<ChecklistItem>? checklist,
+    String? status,
+    // NEW: Completion fields
+    bool? isCompleted,
+    DateTime? completedAt,
+    // NEW: Analytics fields
+    String? boardId,
+    String? columnId,
+    String? assigneeId,
   }) {
     return TaskCard(
       id: id ?? this.id,
-      columnId: columnId ?? this.columnId,
       title: title ?? this.title,
       description: description ?? this.description,
-      status: status ?? this.status,
       priority: priority ?? this.priority,
-      assigneeId: assigneeId ?? this.assigneeId,
       category: category ?? this.category,
-      assignees: assignees ?? this.assignees,
       progress: progress ?? this.progress,
-      labels: labels ?? this.labels,
-      tags: tags ?? this.tags,
       dueDate: dueDate ?? this.dueDate,
-      checklist: checklist ?? this.checklist,
-      subtasks: subtasks ?? this.subtasks,
-      attachments: attachments ?? this.attachments,
-      createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       lastUpdated: lastUpdated ?? this.lastUpdated,
+      assignees: assignees ?? this.assignees,
+      attachments: attachments ?? this.attachments,
+      checklist: checklist ?? this.checklist,
+      status: status ?? this.status,
+      // NEW: Completion fields
+      isCompleted: isCompleted ?? this.isCompleted,
+      completedAt: completedAt ?? this.completedAt,
+      // NEW: Analytics fields
+      boardId: boardId ?? this.boardId,
+      columnId: columnId ?? this.columnId,
+      assigneeId: assigneeId ?? this.assigneeId,
     );
-  }
-
-  // Use when creating a new card in Firestore
-  Map<String, dynamic> toCreateMap() {
-    final storeTags = (tags.isNotEmpty ? tags : labels);
-    final checklistToStore = checklist.isNotEmpty
-        ? checklist
-        : subtasks.map((s) => ChecklistItem(title: s.title, done: s.isCompleted)).toList();
-
-    return {
-      'title': title,
-      'description': description,
-      'status': status,
-      'priority': priority,
-      'assigneeId': assigneeId,
-      'category': category,
-      'assignees': assignees,
-      'progress': progress,
-      'tags': storeTags,
-      'dueDate': dueDate != null ? Timestamp.fromDate(dueDate!) : null,
-      'checklist': checklistToStore.map((e) => e.toMap()).toList(),
-      'attachments': attachments.map((e) => e.toMap()).toList(),
-      'createdBy': createdBy,
-      'createdAt': FieldValue.serverTimestamp(),
-      'lastUpdated': FieldValue.serverTimestamp(),
-    }..removeWhere((k, v) => v == null);
-  }
-
-  // Use when updating/moving an existing card
-  Map<String, dynamic> toUpdateMap() {
-    final storeTags = (tags.isNotEmpty ? tags : labels);
-    final checklistToStore = checklist.isNotEmpty
-        ? checklist
-        : subtasks.map((s) => ChecklistItem(title: s.title, done: s.isCompleted)).toList();
-
-    return {
-      'title': title,
-      'description': description,
-      'status': status,
-      'priority': priority,
-      'assigneeId': assigneeId,
-      'category': category,
-      'assignees': assignees,
-      'progress': progress,
-      'tags': storeTags,
-      'dueDate': dueDate != null ? Timestamp.fromDate(dueDate!) : null,
-      'checklist': checklistToStore.map((e) => e.toMap()).toList(),
-      'attachments': attachments.map((e) => e.toMap()).toList(),
-      'createdBy': createdBy,
-      'lastUpdated': FieldValue.serverTimestamp(),
-    }..removeWhere((k, v) => v == null);
-  }
-
-  // For reading from Firestore
-  factory TaskCard.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc, String columnId) {
-    final data = doc.data() ?? {};
-    final tags = List<String>.from(data['tags'] ?? const []);
-    final labels = List<String>.from(data['labels'] ?? const []);
-    final checklistList = (data['checklist'] as List<dynamic>? ?? const [])
-        .map((e) => ChecklistItem.fromMap(Map<String, dynamic>.from(e as Map)))
-        .toList();
-
-    return TaskCard(
-      id: doc.id,
-      columnId: columnId,
-      title: data['title'] ?? '',
-      description: data['description'] ?? '',
-      status: data['status'] ?? 'todo',
-      priority: data['priority'] ?? 'medium',
-      assigneeId: (data['assigneeId']?.toString().isNotEmpty ?? false) ? '${data['assigneeId']}' : null,
-      category: data['category'] ?? 'General',
-      assignees: List<String>.from(data['assignees'] ?? const []),
-      progress: (data['progress'] ?? 0.0).toDouble(),
-      labels: labels.isNotEmpty ? labels : tags,
-      tags: tags.isNotEmpty ? tags : labels,
-      dueDate: _asNullableDate(data['dueDate']),
-      checklist: checklistList,
-      subtasks: checklistList.map((c) => Subtask(id: '', title: c.title, isCompleted: c.done, createdAt: DateTime.now())).toList(),
-      attachments: (data['attachments'] as List<dynamic>? ?? const [])
-          .map((e) => AttachmentMeta.fromMap(Map<String, dynamic>.from(e as Map)))
-          .toList(),
-      createdBy: data['createdBy'] ?? '',
-      createdAt: _asDate(data['createdAt']),
-      lastUpdated: _asDate(data['lastUpdated'] ?? data['updatedAt']),
-    );
-  }
-
-  // For parsing JSON/AI maps (non-Firestore)
-  factory TaskCard.fromMap(Map<String, dynamic> map) {
-    final tags = List<String>.from(map['tags'] ?? const []);
-    final labels = List<String>.from(map['labels'] ?? const []);
-    final checklistRaw = (map['checklist'] as List<dynamic>?) ?? const [];
-    final subtasksRaw = (map['subtasks'] as List<dynamic>?) ?? const [];
-
-    final checklist = checklistRaw.isNotEmpty
-        ? checklistRaw.map((e) => ChecklistItem.fromMap(Map<String, dynamic>.from(e as Map))).toList()
-        : subtasksRaw.map((e) => ChecklistItem.fromMap({'title': (e as Map)['title'] ?? '', 'done': (e as Map)['isCompleted'] ?? false})).toList();
-
-    final attachments = (map['attachments'] as List<dynamic>? ?? const [])
-        .map((e) => AttachmentMeta.fromMap(Map<String, dynamic>.from(e as Map)))
-        .toList();
-
-    return TaskCard(
-      id: map['id']?.toString() ?? '',
-      columnId: map['columnId']?.toString() ?? '',
-      title: map['title'] ?? '',
-      description: map['description'] ?? '',
-      status: map['status'] ?? 'todo',
-      priority: map['priority'] ?? 'medium',
-      assigneeId: (map['assigneeId']?.toString().isNotEmpty ?? false) ? map['assigneeId'].toString() : null,
-      category: map['category'] ?? 'General',
-      assignees: List<String>.from(map['assignees'] ?? const []),
-      progress: (map['progress'] ?? 0.0).toDouble(),
-      labels: labels.isNotEmpty ? labels : tags,
-      tags: tags.isNotEmpty ? tags : labels,
-      dueDate: map['dueDate'] != null ? DateTime.tryParse('${map['dueDate']}') : null,
-      checklist: checklist,
-      subtasks: (map['subtasks'] as List<dynamic>? ?? const [])
-          .map((e) => Subtask.fromMap(Map<String, dynamic>.from(e as Map)))
-          .toList(),
-      attachments: attachments,
-      createdBy: map['createdBy']?.toString() ?? map['assigneeId']?.toString() ?? '',
-      createdAt: DateTime.tryParse('${map['createdAt']}') ?? DateTime.now(),
-      lastUpdated: DateTime.tryParse('${map['updatedAt'] ?? map['lastUpdated']}') ?? DateTime.now(),
-    );
-  }
-
-  static DateTime _asDate(dynamic v) {
-    if (v is Timestamp) return v.toDate();
-    if (v is DateTime) return v;
-    return DateTime.now();
-  }
-
-  static DateTime? _asNullableDate(dynamic v) {
-    if (v == null) return null;
-    if (v is Timestamp) return v.toDate();
-    if (v is DateTime) return v;
-    return DateTime.tryParse('$v');
   }
 }

@@ -108,8 +108,9 @@ Future<BoardInsights> _computeInsightsForBoard(String boardId) async {
 
   // Comments and board-level files
   try {
-    final c = await fs.collection('boards/$boardId/comments').get();
-    comments.addAll(c.docs.map((d) => d.data()));
+    // Simple count from comments subcollection
+    final commentSnaps = await fs.collection('boards/$boardId/comments').get();
+    comments.addAll(commentSnaps.docs.map((d) => d.data()));
   } catch (e) {
     print('Comments fetch failed for $boardId: $e');
   }
@@ -203,10 +204,9 @@ Future<BoardInsights> computeAllBoardsInsights() async {
     // Comments and board-level files
     for (final boardId in boardIds) {
       try {
+        // Simple count from comments subcollection
         final commentSnaps = await fs.collection('boards/$boardId/comments').get();
-        for (final doc in commentSnaps.docs) {
-          comments.add(doc.data());
-        }
+        comments.addAll(commentSnaps.docs.map((d) => d.data()));
       } catch (e) {
         print('Error fetching comments for board $boardId: $e');
       }
@@ -250,27 +250,68 @@ BoardInsights _emptyInsights(String scopeId) {
   );
 }
 
+// Tasks are classified by status field or column location:
 String _normStatus(String? s) {
   final x = (s ?? '').toLowerCase().trim();
   if (x.contains('done') || x.contains('complete') || x.contains('closed')) return 'done';
-  if (x.contains('progress') || x.contains('doing') || x.contains('review') || x.contains('qa')) return 'in_progress';
+  if (x.contains('progress') || x.contains('doing') || x.contains('review')) return 'in_progress';
   if (x.contains('todo') || x.contains('backlog') || x.contains('open')) return 'todo';
   return 'other';
 }
 
+// Card completion check (3 ways):
 bool _isCardDone(Map<String, dynamic> t) {
-  if (t['isCompleted'] == true) return true;
-  if (t['completedAt'] != null) return true;
-  return _normStatus(t['status']?.toString()) == 'done';
+  if (t['isCompleted'] == true) return true;        // 1. Explicit completion flag
+  if (t['completedAt'] != null) return true;       // 2. Has completion timestamp  
+  return _normStatus(t['status']?.toString()) == 'done'; // 3. Status contains "done"
 }
 
-BoardInsights _generateInsights(
+// Add this helper function to fetch user names
+Future<Map<String, String>> _fetchUserNames(Set<String> userIds) async {
+  if (userIds.isEmpty) return const {};
+  
+  final userNames = <String, String>{};
+  final fs = FirebaseFirestore.instance;
+  
+  // Fetch user names in chunks of 10 (Firestore limit)
+  for (final chunk in _chunk(userIds.toList(), 10)) {
+    try {
+      final qs = await fs.collection('users')
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      
+      for (final doc in qs.docs) {
+        final data = doc.data();
+        final displayName = data['displayName'] as String?;
+        final email = data['email'] as String?;
+        
+        // Use displayName if available, otherwise email, otherwise fallback to ID
+        userNames[doc.id] = displayName?.isNotEmpty == true 
+            ? displayName! 
+            : email?.isNotEmpty == true 
+                ? email!.split('@').first 
+                : doc.id.substring(0, 8); // First 8 chars of ID
+      }
+    } catch (e) {
+      print('Error fetching user names: $e');
+      // Fallback for failed fetches
+      for (final id in chunk) {
+        userNames[id] = id.substring(0, 8);
+      }
+    }
+  }
+  
+  return userNames;
+}
+
+// Update _generateInsights to include user names
+Future<BoardInsights> _generateInsights(
   String scopeId,
   List<Map<String, dynamic>> tasks,
   List<Map<String, dynamic>> comments,
   List<Map<String, dynamic>> files,
   int totalFiles,
-) {
+) async {
   final totalTasks = tasks.length;
   final completedTasks = tasks.where(_isCardDone).length;
   final inProgressTasks =
@@ -280,19 +321,37 @@ BoardInsights _generateInsights(
 
   final completionRate = totalTasks == 0 ? 0.0 : (completedTasks / totalTasks) * 100.0;
 
-  // Team contribution
+  // Team contribution with user names
   final memberTaskCount = <String, int>{};
+  final assigneeIds = <String>{}; // Collect user IDs
+  
   for (final task in tasks) {
     final assigneeId = task['assigneeId']?.toString();
     if (assigneeId != null && assigneeId.isNotEmpty) {
       memberTaskCount[assigneeId] = (memberTaskCount[assigneeId] ?? 0) + 1;
+      assigneeIds.add(assigneeId);
     }
   }
+
+  // Fetch user names for all assignees
+  final userNames = await _fetchUserNames(assigneeIds);
+
+  // Convert to percentages with names
   final totalAssignments = memberTaskCount.values.fold<int>(0, (a, b) => a + b);
-  final teamContribution = <String, double>{
-    for (final e in memberTaskCount.entries)
-      e.key: totalAssignments == 0 ? 0.0 : (e.value / totalAssignments) * 100.0
-  };
+  final teamContribution = <String, double>{};
+  final teamContributionWithNames = <String, Map<String, dynamic>>{};
+  
+  for (final e in memberTaskCount.entries) {
+    final percentage = totalAssignments == 0 ? 0.0 : (e.value / totalAssignments) * 100.0;
+    final userName = userNames[e.key] ?? e.key.substring(0, 8);
+    
+    teamContribution[e.key] = percentage;
+    teamContributionWithNames[e.key] = {
+      'name': userName,
+      'percentage': percentage,
+      'taskCount': e.value,
+    };
+  }
 
   // Checklist completion average
   double checklistPct(List<dynamic> checklist) {
@@ -313,20 +372,17 @@ BoardInsights _generateInsights(
     final list = task['checklist'] as List<dynamic>? ?? const [];
     checklistRates.add(checklistPct(list));
   }
-  final avgChecklistCompletion =
-      checklistRates.isEmpty ? 0.0 : checklistRates.reduce((a, b) => a + b) / checklistRates.length;
+  final avgChecklistCompletion = checklistRates.isEmpty 
+    ? 0.0 
+    : checklistRates.reduce((a, b) => a + b) / checklistRates.length;
 
-  // Engagement factor (uses board-level files + comments count)
-  final engagementRaw = (comments.length + files.length) / (totalTasks + 1) * 10.0;
-  final engagementFactor = engagementRaw.clamp(0.0, 20.0);
-
-  final projectHealthScore =
-      (completionRate * 0.6) + (avgChecklistCompletion * 0.2) + (engagementFactor * 0.2);
+  final projectHealthScore = completionRate;
 
   return BoardInsights(
     boardId: scopeId,
     projectHealthScore: projectHealthScore.clamp(0.0, 100.0),
     teamContribution: teamContribution,
+    teamContributionWithNames: teamContributionWithNames,
     taskTrends: {
       'total': totalTasks,
       'completed': completedTasks,

@@ -6,6 +6,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:boardbuddy/features/board/presentation/board_view_screen.dart';
 import 'dart:math' as math;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:boardbuddy/features/board/models/board.dart';
 
 // Replace FutureBuilder<BoardInsights> with dashboard payload and add “Needs Attention”
 class BoardAnalyticsScreen extends StatelessWidget {
@@ -186,9 +188,10 @@ class BoardAnalyticsScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(b.name,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 4),
+                        Text(
+                          b.name,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
                         Text(
                           '$reason • $done/$total done',
                           style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
@@ -200,13 +203,25 @@ class BoardAnalyticsScreen extends StatelessWidget {
                       style: TextStyle(color: color, fontWeight: FontWeight.bold)),
                   const SizedBox(width: 12),
                   OutlinedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => BoardViewScreen(board: null), // uses boardId inside fetch – pass via route if needed
-                          settings: RouteSettings(arguments: {'boardId': b.boardId, 'boardTitle': b.name}),
-                        ),
-                      );
+                    onPressed: () async {
+                      try {
+                        final board = await _getBoardById(b.boardId);
+                        if (board != null) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => BoardViewScreen(board: board),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Board not found')),
+                          );
+                        }
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error loading board: $e')),
+                        );
+                      }
                     },
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: color),
@@ -228,16 +243,70 @@ class BoardAnalyticsScreen extends StatelessWidget {
     final completed = insights.taskTrends['completed'] ?? 0;
     final files = insights.resourceUsage['fileUploads']?.toInt() ?? 0;
     final comments = insights.resourceUsage['commentsCount']?.toInt() ?? 0;
+    
+    // Calculate pure completion rate
+    final completionRate = total == 0 ? 0.0 : (completed / total) * 100.0;
 
-    return Row(
+    return Column(
       children: [
-        Expanded(child: _buildStatCard('Total Tasks', total.toString(), Icons.assignment_outlined, AppColors.primary)),
-        const SizedBox(width: 12),
-        Expanded(child: _buildStatCard('Completed', completed.toString(), Icons.check_circle_outline, AppColors.success)),
-        const SizedBox(width: 12),
-        Expanded(child: _buildStatCard('Files', files.toString(), Icons.attach_file_outlined, AppColors.warning)),
-        const SizedBox(width: 12),
-        Expanded(child: _buildStatCard('Comments', comments.toString(), Icons.comment_outlined, AppColors.info)),
+        // Top row with completion rate
+        Container(
+          padding: const EdgeInsets.all(20),
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.success.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.trending_up, color: AppColors.success, size: 32),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${completionRate.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Text(
+                      'Task Completion Rate',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      '$completed of $total tasks completed',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Bottom row with other stats
+        Row(
+          children: [
+            Expanded(child: _buildStatCard('Total Tasks', total.toString(), Icons.assignment_outlined, AppColors.primary)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildStatCard('Completed', completed.toString(), Icons.check_circle_outline, AppColors.success)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildStatCard('Files', files.toString(), Icons.attach_file_outlined, AppColors.warning)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildStatCard('Comments', comments.toString(), Icons.comment_outlined, AppColors.info)),
+          ],
+        ),
       ],
     );
   }
@@ -305,10 +374,10 @@ class BoardAnalyticsScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.health_and_safety_outlined, color: color, size: 28),
+              Icon(Icons.task_alt, color: color, size: 28),
               const SizedBox(width: 12),
               const Text(
-                'Project Health Score',
+                'Task Completion Score',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -365,9 +434,11 @@ class BoardAnalyticsScreen extends StatelessWidget {
   }
 
   String _getHealthDescription(double score) {
-    if (score >= 75) return 'Excellent! Your project is on track with great progress.';
-    if (score >= 50) return 'Good progress, but there\'s room for improvement.';
-    return 'Needs attention. Consider reviewing task distribution and engagement.';
+    if (score >= 80) return 'Excellent! ${score.toStringAsFixed(1)}% of tasks completed.';
+    if (score >= 60) return 'Good progress! ${score.toStringAsFixed(1)}% completion rate.';
+    if (score >= 40) return 'Making progress. ${score.toStringAsFixed(1)}% of tasks done.';
+    if (score > 0) return 'Getting started. ${score.toStringAsFixed(1)}% completion rate.';
+    return 'No tasks completed yet. Time to get started!';
   }
 
   Widget _buildTaskDistributionChart(BoardInsights insights) {
@@ -401,7 +472,7 @@ class BoardAnalyticsScreen extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               // Keep it within card bounds on all screens
-              final maxChartSize = 140.0; // smaller than before
+              final maxChartSize = 140.0;
               final size = math.min(constraints.maxWidth, maxChartSize);
               final outerRadius = size * 0.48;
               final centerSpace = size * 0.34;
@@ -412,7 +483,7 @@ class BoardAnalyticsScreen extends StatelessWidget {
                     color: AppColors.success,
                     value: completed.toDouble(),
                     radius: outerRadius,
-                    title: '', // hide default labels
+                    title: '',
                   ),
                 if (inProgress > 0)
                   PieChartSectionData(
@@ -582,18 +653,18 @@ class BoardAnalyticsScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: _buildMetricCard(
-                  'Avg Checklist',
+                  'Checklist',
                   '${avgChecklist.toStringAsFixed(1)}%',
-                  Icons.checklist_outlined,
+                  Icons.checklist,
                   AppColors.info,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _buildMetricCard(
-                  'Files Uploaded',
+                  'Files',
                   files.toString(),
-                  Icons.attach_file_outlined,
+                  Icons.attach_file,
                   AppColors.warning,
                 ),
               ),
@@ -602,7 +673,7 @@ class BoardAnalyticsScreen extends StatelessWidget {
                 child: _buildMetricCard(
                   'Comments',
                   comments.toString(),
-                  Icons.comment_outlined,
+                  Icons.comment,
                   AppColors.primary,
                 ),
               ),
@@ -648,12 +719,36 @@ class BoardAnalyticsScreen extends StatelessWidget {
   }
 
   Widget _buildTeamContributionChart(BoardInsights insights) {
-    if (insights.teamContribution.isEmpty) {
-      return _buildEmptyChart('No team assignments yet');
+    final teamData = insights.teamContributionWithNames;
+    
+    // Fallback: if teamContributionWithNames is null, use old teamContribution
+    if (teamData == null || teamData.isEmpty) {
+      final oldTeamData = insights.teamContribution;
+      if (oldTeamData.isEmpty) {
+        return _buildEmptyChart('No team assignments yet');
+      }
+      
+      // Convert old format to new format with user ID as fallback name
+      final fallbackTeamData = <String, Map<String, dynamic>>{};
+      var totalPercentage = 0.0;
+      for (final entry in oldTeamData.entries) {
+        totalPercentage += entry.value;
+        fallbackTeamData[entry.key] = {
+          'name': entry.key.substring(0, 8), // Use first 8 chars of ID
+          'percentage': entry.value,
+          'taskCount': 1, // We don't have task count, so estimate
+        };
+      }
+      
+      return _buildTeamContributionUI(fallbackTeamData);
     }
+    
+    return _buildTeamContributionUI(teamData);
+  }
 
-    final entries = insights.teamContribution.entries.toList();
-    entries.sort((a, b) => b.value.compareTo(a.value));
+  Widget _buildTeamContributionUI(Map<String, Map<String, dynamic>> teamData) {
+    final sortedEntries = teamData.entries.toList()
+      ..sort((a, b) => (b.value['percentage'] as double).compareTo(a.value['percentage'] as double));
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -673,7 +768,12 @@ class BoardAnalyticsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          ...entries.map((entry) {
+          ...sortedEntries.map((entry) {
+            final userData = entry.value;
+            final name = userData['name'] as String;
+            final percentage = userData['percentage'] as double;
+            final taskCount = userData['taskCount'] as int;
+            
             final colors = [
               AppColors.primary,
               AppColors.success,
@@ -681,30 +781,61 @@ class BoardAnalyticsScreen extends StatelessWidget {
               AppColors.info,
               AppColors.error,
             ];
-            final color = colors[entries.indexOf(entry) % colors.length];
+            final color = colors[sortedEntries.indexOf(entry) % colors.length];
             
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: Column(
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: Text(
-                          entry.key,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Center(
+                          child: Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : '?',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
-                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              '$taskCount tasks assigned',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       Text(
-                        '${entry.value.toStringAsFixed(1)}%',
+                        '${percentage.toStringAsFixed(1)}%',
                         style: TextStyle(
                           color: color,
                           fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
                       ),
                     ],
@@ -712,7 +843,7 @@ class BoardAnalyticsScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   LinearPercentIndicator(
                     lineHeight: 8.0,
-                    percent: entry.value / 100,
+                    percent: percentage / 100,
                     backgroundColor: AppColors.textSecondary.withOpacity(0.2),
                     progressColor: color,
                     barRadius: const Radius.circular(4),
@@ -736,11 +867,7 @@ class BoardAnalyticsScreen extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            Icon(
-              Icons.analytics_outlined,
-              color: AppColors.textSecondary,
-              size: 48,
-            ),
+            Icon(Icons.analytics_outlined, size: 48, color: AppColors.textSecondary.withOpacity(0.5)),
             const SizedBox(height: 16),
             Text(
               message,
@@ -748,12 +875,27 @@ class BoardAnalyticsScreen extends StatelessWidget {
                 color: AppColors.textSecondary,
                 fontSize: 16,
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<Board?> _getBoardById(String boardId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('boards')
+          .doc(boardId)
+          .get();
+    
+      if (!doc.exists) return null;
+    
+      return Board.fromMap(doc.data()!, doc.id);
+    } catch (e) {
+      print('Error fetching board $boardId: $e');
+      return null;
+    }
   }
 }
 

@@ -1,7 +1,6 @@
 import 'package:boardbuddy/features/board/presentation/board_analytics_screen.dart';
 import 'package:boardbuddy/features/profile/presentation/profile_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:boardbuddy/core/theme/app_colors.dart' hide AppColors;
 import 'package:boardbuddy/features/home/presentation/board_screen.dart';
 
 class MainScreen extends StatefulWidget {

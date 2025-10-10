@@ -64,14 +64,21 @@ class BoardFirestoreService {
         .map((s) => s.docs.map((d) => task_model.TaskCard.fromDoc(d, columnId)).toList());
   }
 
-  bool _isDoneSlug(String s) {
-    final x = (s).toLowerCase().trim();
-    return x.contains('done') || x.contains('complete') || x.contains('closed');
+  String _slug(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+
+  String _deriveStageFromTitle(String? title) {
+    final t = _slug(title ?? '');
+    if (t.contains('done') || t.contains('complete') || t.contains('closed')) return 'done';
+    if (t.contains('progress') || t.contains('doing') || t.contains('review') || t.contains('qa')) {
+      return 'in_progress';
+    }
+    if (t.contains('todo') || t.contains('backlog') || t.contains('open')) return 'todo';
+    return 'in_progress'; // safe default
   }
 
-  String _slugify(String? title) {
-    if (title == null) return '';
-    return title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+  bool _isDoneFromStatus(String? status) {
+    final s = _slug(status ?? '');
+    return s.contains('done') || s.contains('complete') || s.contains('closed');
   }
 
   // When upserting a card ensure boardId/columnId/status/isCompleted/completedAt are consistent
@@ -80,36 +87,45 @@ class BoardFirestoreService {
     required String columnId,
     required task_model.TaskCard card,
   }) async {
-    final cardsCol = boardsCol()
-        .doc(boardId)
-        .collection('columns')
-        .doc(columnId)
-        .collection('cards');
+    final fs = FirebaseFirestore.instance;
+    final cardsCol = fs.collection('boards').doc(boardId)
+        .collection('columns').doc(columnId).collection('cards');
 
     final docRef = card.id.isNotEmpty ? cardsCol.doc(card.id) : cardsCol.doc();
     final isUpdate = card.id.isNotEmpty;
 
     final payload = isUpdate ? card.toUpdateMap() : card.toCreateMap();
 
-    // denormalize for analytics
+    // Denormalize for analytics
     payload['boardId'] = boardId;
     payload['columnId'] = columnId;
 
-    // normalize status
-    final statusStr = (payload['status'] ?? _slugify(card.status)).toString();
-    payload['status'] = statusStr;
+    // Ensure a normalized status string
+    final status = (payload['status'] ?? card.status ?? '').toString();
+    payload['status'] = status;
 
-    // compute completion flags
-    final isDone = (payload['isCompleted'] == true) || _isDoneSlug(statusStr);
-    payload['isCompleted'] = isDone;
-    if (isDone) {
-      payload['completedAt'] = payload['completedAt'] ?? FieldValue.serverTimestamp();
-    } else {
-      // if explicitly moving out of done, clear completedAt
-      if (payload.containsKey('completedAt')) payload['completedAt'] = null;
+    // Read column.stage; derive if missing
+    final colSnap = await fs.collection('boards').doc(boardId).collection('columns').doc(columnId).get();
+    final colData = colSnap.data() ?? {};
+    final stage = (colData['stage'] as String?) ?? _deriveStageFromTitle(colData['title'] ?? colData['name']);
+    if (colData['stage'] == null) {
+      // save stage once if it wasn’t set
+      await colSnap.reference.set({'stage': stage}, SetOptions(merge: true));
     }
 
+    // Compute completion flags
+    final isDone = (payload['isCompleted'] == true) || (stage == 'done') || _isDoneFromStatus(status);
+    payload['isCompleted'] = isDone;
+    payload['completedAt'] = isDone
+        ? (payload['completedAt'] ?? FieldValue.serverTimestamp())
+        : null;
+
+    // Write card
     await docRef.set(payload, SetOptions(merge: true));
+
+    // Update board counts
+    await _recountBoardTaskCounts(boardId);
+
     return docRef.id;
   }
 
@@ -120,44 +136,92 @@ class BoardFirestoreService {
     required String fromColumn,
     required String toColumn,
   }) async {
-    final fromRef = boardsCol()
-        .doc(boardId)
-        .collection('columns')
-        .doc(fromColumn)
-        .collection('cards')
-        .doc(taskId);
+    final fs = FirebaseFirestore.instance;
+    final fromRef = fs.collection('boards').doc(boardId)
+        .collection('columns').doc(fromColumn).collection('cards').doc(taskId);
+    final toRef = fs.collection('boards').doc(boardId)
+        .collection('columns').doc(toColumn).collection('cards').doc(taskId);
 
-    final toRef = boardsCol()
-        .doc(boardId)
-        .collection('columns')
-        .doc(toColumn)
-        .collection('cards')
-        .doc(taskId);
+    // Determine destination stage
+    final toColSnap = await fs.collection('boards').doc(boardId).collection('columns').doc(toColumn).get();
+    final toCol = toColSnap.data() ?? {};
+    final toStage = (toCol['stage'] as String?) ?? _deriveStageFromTitle(toCol['title'] ?? toCol['name']);
+    if (toCol['stage'] == null) {
+      await toColSnap.reference.set({'stage': toStage}, SetOptions(merge: true));
+    }
 
-    // Read destination column title to derive status
-    final toColSnap = await boardsCol().doc(boardId).collection('columns').doc(toColumn).get();
-    final toTitle = (toColSnap.data()?['title'] ?? toColSnap.data()?['name'] ?? '').toString();
-    final toSlug = _slugify(toTitle);
-    final isDone = _isDoneSlug(toSlug);
-
-    await FirebaseFirestore.instance.runTransaction((tx) async {
+    await fs.runTransaction((tx) async {
       final snap = await tx.get(fromRef);
       if (!snap.exists) return;
       final data = Map<String, dynamic>.from(snap.data() ?? {});
       data['boardId'] = boardId;
       data['columnId'] = toColumn;
-      data['status'] = (data['status'] ?? '').toString().isEmpty ? toSlug : data['status'];
+
+      // Keep status if present else derive from target column
+      final status = (data['status'] ?? '').toString();
+      data['status'] = status.isEmpty ? toStage : status;
+
+      final isDone = toStage == 'done' || _isDoneFromStatus(status);
       data['isCompleted'] = isDone;
       data['lastUpdated'] = FieldValue.serverTimestamp();
-      if (isDone) {
-        data['completedAt'] = FieldValue.serverTimestamp();
-      } else {
-        data['completedAt'] = null;
-      }
+      data['completedAt'] = isDone ? FieldValue.serverTimestamp() : null;
 
       tx.set(toRef, data, SetOptions(merge: true));
       tx.delete(fromRef);
     });
+
+    // Update board counts
+    await _recountBoardTaskCounts(boardId);
+  }
+
+  // Recalculate counts (safe and simple). For big boards replace with incremental counters.
+  Future<void> _recountBoardTaskCounts(String boardId) async {
+    final fs = FirebaseFirestore.instance;
+    final cols = await fs.collection('boards').doc(boardId).collection('columns').get();
+
+    var total = 0, done = 0, inProgress = 0, todo = 0;
+
+    for (final col in cols.docs) {
+      final stage = (col.data()['stage'] as String?) ?? _deriveStageFromTitle(col.data()['title'] ?? col.data()['name']);
+      final cards = await col.reference.collection('cards').get();
+      total += cards.size;
+      if (cards.size == 0) continue;
+
+      if (stage == 'done') {
+        done += cards.size;        // whole column counts as done
+      } else if (stage == 'in_progress') {
+        inProgress += cards.size;
+      } else {
+        todo += cards.size;
+      }
+    }
+
+    await fs.collection('boards').doc(boardId).set({
+      'taskCounts': {
+        'total': total,
+        'completed': done,
+        'inProgress': inProgress,
+        'todo': todo,
+      },
+      'lastCountsAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  // One-time backfill for existing columns/cards
+  Future<void> backfillStagesAndCounts(String boardId) async {
+    final fs = FirebaseFirestore.instance;
+    final boardRef = fs.collection('boards').doc(boardId);
+    final cols = await boardRef.collection('columns').get();
+    final batch = fs.batch();
+
+    for (final c in cols.docs) {
+      final data = c.data();
+      final stage = (data['stage'] as String?) ?? _deriveStageFromTitle(data['title'] ?? data['name']);
+      batch.set(c.reference, {'stage': stage}, SetOptions(merge: true));
+    }
+    await batch.commit();
+
+    await _recountBoardTaskCounts(boardId);
   }
 
   // NEW: delete card
@@ -531,5 +595,42 @@ class BoardFirestoreService {
     for (final d in qs.docs) {
       await backfillCardBoardIdsForBoard(d.id);
     }
+  }
+
+  /// Mark/unmark a card as completed and keep timestamps in sync.
+  Future<void> setCardCompleted({
+    required String boardId,
+    required String columnId,
+    required String cardId,
+    required bool isCompleted,
+  }) async {
+    final ref = boardsCol()
+        .doc(boardId)
+        .collection('columns').doc(columnId)
+        .collection('cards').doc(cardId);
+
+    await ref.set({
+      'isCompleted': isCompleted,
+      'completedAt': isCompleted ? FieldValue.serverTimestamp() : null,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await _recountBoardTaskCounts(boardId);
+  }
+
+  /// Explicitly set a column stage: 'todo' | 'in_progress' | 'done'
+  Future<void> setColumnStage({
+    required String boardId,
+    required String columnId,
+    required String stage,
+  }) async {
+    await boardsCol()
+        .doc(boardId)
+        .collection('columns')
+        .doc(columnId)
+        .set({'stage': stage, 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+
+    // Recount since stage affects how cards are counted
+    await _recountBoardTaskCounts(boardId);
   }
 }

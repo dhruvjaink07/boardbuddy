@@ -51,6 +51,20 @@ class Board {
     );
   }
 
+  factory Board.fromMap(Map<String, dynamic> data, String boardId) {
+    return Board(
+      boardId: boardId,
+      name: data['name'] ?? '',
+      description: data['description'] ?? '',
+      theme: data['theme'] ?? 'default',
+      ownerId: data['ownerId'] ?? '',
+      memberIds: List<String>.from(data['memberIds'] ?? const []),
+      maxEditors: data['maxEditors'],
+      createdAt: _asDate(data['createdAt']),
+      lastUpdated: _asDate(data['lastUpdated']),
+    );
+  }
+
   static DateTime _asDate(dynamic v) {
     if (v is Timestamp) return v.toDate();
     if (v is DateTime) return v;

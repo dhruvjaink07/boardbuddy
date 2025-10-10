@@ -223,6 +223,7 @@ class _BoardViewScreenState extends State<BoardViewScreen> {
                                   title: col.title,
                                   tasks: tasks,
                                   columnId: col.columnId,
+                                  userRole: role, // NEW: pass role to column
                                   onTaskMoved: canEdit ? _onTaskMoved : (_, __, ___) {}, 
                                   onTaskTap: (task) async {
                                     if (!canEdit) return;

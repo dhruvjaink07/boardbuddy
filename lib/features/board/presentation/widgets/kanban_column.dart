@@ -3,20 +3,23 @@ import 'package:flutter/services.dart';
 import 'package:boardbuddy/core/theme/app_colors.dart';
 import 'package:boardbuddy/features/board/presentation/widgets/task_card.dart' as task_widget;
 import 'package:boardbuddy/features/board/models/task_card.dart' as task_model;
+import 'package:boardbuddy/features/board/data/board_firestore_service.dart';
 
 class KanbanColumn extends StatefulWidget {
   final String title;
-  final List<task_model.TaskCard> tasks; // Use typed model consistently
+  final List<task_model.TaskCard> tasks;
   final String columnId;
+  final String userRole; // NEW: Add this parameter
   final Function(String taskId, String fromColumn, String toColumn) onTaskMoved;
   final Function(task_model.TaskCard task, Offset position)? onTaskLongPress;
-  final Function(task_model.TaskCard task) onTaskTap; // Use typed model
+  final Function(task_model.TaskCard task) onTaskTap;
 
   const KanbanColumn({
     super.key,
     required this.title,
     required this.tasks,
     required this.columnId,
+    required this.userRole, // NEW: Add this parameter
     required this.onTaskMoved,
     this.onTaskLongPress,
     required this.onTaskTap,
@@ -285,13 +288,13 @@ class _KanbanColumnState extends State<KanbanColumn>
   }
 
   Widget _buildDraggableTask(task_model.TaskCard task, int index) {
+    final canEdit = widget.userRole == 'owner' || widget.userRole == 'editor';
+    
     return AnimatedContainer(
       duration: Duration(milliseconds: 50 + (index * 25)),
       margin: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
-        onTap: () {
-          widget.onTaskTap(task);
-        },
+        onTap: () => widget.onTaskTap(task),
         onLongPressStart: (details) {
           HapticFeedback.lightImpact();
           widget.onTaskLongPress?.call(task, details.globalPosition);
@@ -316,7 +319,18 @@ class _KanbanColumnState extends State<KanbanColumn>
                     ),
                   ],
                 ),
-                child: task_widget.TaskCard(task: task),
+                child: task_widget.TaskCard(
+                  task: task,
+                  readOnly: !canEdit,
+                  onCompletionChanged: canEdit ? (isCompleted) async {
+                    await BoardFirestoreService.instance.setCardCompleted(
+                      boardId: task.boardId ?? '',
+                      columnId: task.columnId ?? widget.columnId,
+                      cardId: task.id,
+                      isCompleted: isCompleted,
+                    );
+                  } : null,
+                ),
               ),
             ),
           ),
@@ -324,16 +338,36 @@ class _KanbanColumnState extends State<KanbanColumn>
             opacity: 0.1,
             child: Transform.scale(
               scale: 0.92,
-              child: task_widget.TaskCard(task: task),
+              child: task_widget.TaskCard(
+                task: task,
+                readOnly: !canEdit,
+                onCompletionChanged: canEdit ? (isCompleted) async {
+                  await BoardFirestoreService.instance.setCardCompleted(
+                    boardId: task.boardId ?? '',
+                    columnId: task.columnId ?? widget.columnId,
+                    cardId: task.id,
+                    isCompleted: isCompleted,
+                  );
+                } : null,
+              ),
             ),
           ),
-          onDragStarted: () {
-            HapticFeedback.lightImpact();
-          },
+          onDragStarted: () => HapticFeedback.lightImpact(),
           onDragEnd: (details) {
             // Handle drag end
           },
-          child: task_widget.TaskCard(task: task),
+          child: task_widget.TaskCard(
+            task: task,
+            readOnly: !canEdit,
+            onCompletionChanged: canEdit ? (isCompleted) async {
+              await BoardFirestoreService.instance.setCardCompleted(
+                boardId: task.boardId ?? '',
+                columnId: task.columnId ?? widget.columnId,
+                cardId: task.id,
+                isCompleted: isCompleted,
+              );
+            } : null,
+          ),
         ),
       ),
     );

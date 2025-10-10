@@ -21,6 +21,8 @@ class _CreateBoardPageState extends State<CreateBoardPage> {
   String selectedTheme = "Purple Galaxy";
   Gradient selectedGradient = LinearGradient(
     colors: [AppColors.purple, AppColors.purpleLight],
+
+    
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
