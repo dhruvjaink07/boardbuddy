@@ -9,6 +9,10 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:boardbuddy/features/board/models/board.dart';
 
+String _shortId(String id, [int len = 8]) {
+  return (id == null) ? '' : (id.length <= len ? id : id.substring(0, len));
+}
+
 // Replace FutureBuilder<BoardInsights> with dashboard payload and add “Needs Attention”
 class BoardAnalyticsScreen extends StatelessWidget {
   final String? boardId;
@@ -730,13 +734,11 @@ class BoardAnalyticsScreen extends StatelessWidget {
       
       // Convert old format to new format with user ID as fallback name
       final fallbackTeamData = <String, Map<String, dynamic>>{};
-      var totalPercentage = 0.0;
       for (final entry in oldTeamData.entries) {
-        totalPercentage += entry.value;
         fallbackTeamData[entry.key] = {
-          'name': entry.key.substring(0, 8), // Use first 8 chars of ID
+          'name': _shortId(entry.key), // SAFE
           'percentage': entry.value,
-          'taskCount': 1, // We don't have task count, so estimate
+          'taskCount': 1,
         };
       }
       

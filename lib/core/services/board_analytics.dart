@@ -266,6 +266,12 @@ bool _isCardDone(Map<String, dynamic> t) {
   return _normStatus(t['status']?.toString()) == 'done'; // 3. Status contains "done"
 }
 
+// safe short id helper
+String _shortId(String id, [int len = 8]) {
+  if (id == null) return '';
+  return id.length <= len ? id : id.substring(0, len);
+}
+
 // Add this helper function to fetch user names
 Future<Map<String, String>> _fetchUserNames(Set<String> userIds) async {
   if (userIds.isEmpty) return const {};
@@ -290,13 +296,13 @@ Future<Map<String, String>> _fetchUserNames(Set<String> userIds) async {
             ? displayName! 
             : email?.isNotEmpty == true 
                 ? email!.split('@').first 
-                : doc.id.substring(0, 8); // First 8 chars of ID
+                : _shortId(doc.id); // SAFE
       }
     } catch (e) {
       print('Error fetching user names: $e');
       // Fallback for failed fetches
       for (final id in chunk) {
-        userNames[id] = id.substring(0, 8);
+        userNames[id] = _shortId(id); // SAFE
       }
     }
   }
